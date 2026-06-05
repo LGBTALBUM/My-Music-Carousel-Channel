@@ -1,0 +1,7 @@
+settings:
+  fontFamily: "Noto Sans TC, Microsoft JhengHei, sans-serif"
+  enablePV: true
+  playMode: song-random
+  bgMode: cover
+library:
+  albums: []

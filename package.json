@@ -1,14 +1,16 @@
 {
   "name": "my-music-carousel-channel",
-  "version": "0.2.0",
-  "description": "A local Electron music carousel channel with asset import, album editing, PV/background playback, and LRC lyrics.",
+  "version": "0.3.0",
+  "description": "Local music carousel channel with asset manager and fullscreen player",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
   },
   "dependencies": {
     "archiver": "^7.0.1",
-    "electron": "^33.4.11",
-    "yaml": "^2.9.0"
+    "yaml": "^2.6.1"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1"
   }
 }

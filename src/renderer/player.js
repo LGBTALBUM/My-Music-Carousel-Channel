@@ -6,106 +6,118 @@ const titleEl = document.getElementById('title');
 const albumEl = document.getElementById('album');
 const yearEl = document.getElementById('year');
 
-let payload = null;
+let payload;
 let queue = [];
 let queueIndex = 0;
 let bgTimer = null;
 let lyrics = [];
 let currentTrack = null;
-let currentAlbumCursor = 0;
+let albumCursor = 0;
 
-function shuffle(items) {
-  return items.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(v => v[1]);
-}
+const shuffle = array => array
+  .map(value => [Math.random(), value])
+  .sort((a, b) => a[0] - b[0])
+  .map(pair => pair[1]);
 
-async function fileUrl(relPath) {
+async function assetUrl(relPath) {
   return window.mmcc.dataFileUrl(relPath);
 }
 
-function setStatus(text, className = 'status') {
+function setScrollingText(el, text) {
+  el.classList.remove('scroll');
+  el.innerHTML = '';
+
+  const span = document.createElement('span');
+  span.textContent = text || '';
+  el.appendChild(span);
+
+  requestAnimationFrame(() => {
+    el.classList.toggle('scroll', span.scrollWidth > el.clientWidth + 4);
+  });
+}
+
+function setLyricStatus(text, className = 'status') {
   lyrics = [];
   lyricInner.className = className;
   lyricInner.textContent = text;
   lyricInner.style.transform = 'translateY(0)';
 }
 
-function setScrollingText(el, text) {
-  el.classList.remove('scroll');
-  el.innerHTML = '';
-  const span = document.createElement('span');
-  span.textContent = text || '';
-  el.appendChild(span);
-
-  requestAnimationFrame(() => {
-    el.classList.toggle('scroll', span.scrollWidth > el.clientWidth + 8);
-  });
-}
-
-function groupedByAlbum() {
-  const map = new Map();
-  for (const track of payload.tracks || []) {
-    const key = track.albumId || track.albumTitle || 'Single';
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(track);
-  }
-  return Array.from(map.values());
-}
-
-function buildQueue() {
+function pickQueue() {
   const tracks = payload.tracks || [];
-  const mode = payload.config?.settings?.playMode || 'song-random';
+  const mode = payload.config.settings.playMode || 'song-random';
+
   if (!tracks.length) return [];
-
+  if (mode === 'single-loop' && currentTrack) return [currentTrack];
   if (mode === 'song-random') return shuffle(tracks);
-  if (mode === 'song-loop') return [...tracks];
 
-  const groups = groupedByAlbum();
-  if (mode === 'album-random') return shuffle(groups).flatMap(group => group);
-  if (mode === 'album-loop') {
-    const group = groups[currentAlbumCursor % groups.length] || [];
-    currentAlbumCursor += 1;
-    return [...group];
+  if (mode === 'album-random') {
+    const groups = Object.values(tracks.reduce((map, track) => {
+      (map[track.albumId] ||= []).push(track);
+      return map;
+    }, {}));
+    return shuffle(groups).flatMap(group => shuffle(group));
   }
 
-  return [...tracks];
+  if (mode === 'album-loop') {
+    const groups = Object.values(tracks.reduce((map, track) => {
+      (map[track.albumId] ||= []).push(track);
+      return map;
+    }, {}));
+    albumCursor = albumCursor % groups.length;
+    return groups[albumCursor++];
+  }
+
+  return tracks;
 }
 
 function nextTrack() {
-  const mode = payload.config?.settings?.playMode || 'song-random';
-  if (mode === 'single-loop' && currentTrack) return currentTrack;
+  const mode = payload.config.settings.playMode || 'song-random';
 
-  if (!queue.length || queueIndex >= queue.length) {
-    queue = buildQueue();
+  if (!queue.length || queueIndex >= queue.length || mode === 'single-loop') {
+    queue = pickQueue();
     queueIndex = 0;
   }
+
   return queue[queueIndex++];
 }
 
 async function rotateBg() {
   const imgs = payload.bgImages || [];
+
   if (!imgs.length) {
     bg.style.backgroundImage = '';
     return;
   }
 
-  const rel = imgs[Math.floor(Math.random() * imgs.length)];
-  const src = await fileUrl(rel);
-  bg.style.backgroundImage = `url("${src}")`;
-  bg.style.backgroundSize = (payload.config?.settings?.bgMode || 'cover') === 'contain' ? 'contain' : 'cover';
+  const img = imgs[Math.floor(Math.random() * imgs.length)];
+  const bgMode = payload.config.settings.bgMode || 'cover';
+
+  bg.style.backgroundSize = bgMode === 'contain' ? 'contain' : 'cover';
+  bg.style.backgroundRepeat = 'no-repeat';
+  bg.style.backgroundPosition = 'center';
+  bg.style.backgroundImage = `url("${await assetUrl(img)}")`;
 }
 
 function parseLrc(text) {
-  const out = [];
+  const output = [];
+
   for (const line of text.split(/\r?\n/)) {
-    const matches = [...line.matchAll(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g)];
+    const matches = [...line.matchAll(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g)];
     if (!matches.length) continue;
-    const lyricText = line.replace(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g, '').trim();
-    for (const m of matches) {
-      const ms = Number((m[3] || '0').padEnd(3, '0').slice(0, 3)) / 1000;
-      out.push({ time: Number(m[1]) * 60 + Number(m[2]) + ms, text: lyricText });
+
+    const lyricText = line.replace(/\[[^\]]+\]/g, '').trim();
+
+    for (const match of matches) {
+      const millis = match[3] ? Number(match[3].padEnd(3, '0')) / 1000 : 0;
+      output.push({
+        time: Number(match[1]) * 60 + Number(match[2]) + millis,
+        text: lyricText
+      });
     }
   }
-  return out.sort((a, b) => a.time - b.time);
+
+  return output.sort((a, b) => a.time - b.time);
 }
 
 async function loadLyrics(track) {
@@ -113,122 +125,148 @@ async function loadLyrics(track) {
   lyricInner.className = '';
   lyricInner.style.transform = 'translateY(0)';
 
-  if (track.PureMusic || track.pureMusic || !track.lyricpath) {
-    setStatus('純音樂，請欣賞', 'pure');
+  if (track.PureMusic || track.pureMusic || track.type === 'PureMusic') {
+    setLyricStatus('純音樂，請欣賞', 'pure');
+    return;
+  }
+
+  if (!track.lyricpath) {
+    setLyricStatus('未找到歌詞', 'status');
     return;
   }
 
   try {
     const text = await window.mmcc.readDataText(track.lyricpath);
     lyrics = parseLrc(text);
+
     if (!lyrics.length) {
-      setStatus('歌詞格式無時間軸', 'status');
+      setLyricStatus('歌詞格式無時間軸', 'status');
       return;
     }
 
     lyricInner.innerHTML = lyrics
       .map((line, index) => `<div class="lyric-line" data-i="${index}">${escapeHtml(line.text || ' ')}</div>`)
       .join('');
-  } catch (err) {
-    setStatus('歌詞讀取失敗', 'status');
+  } catch (error) {
+    setLyricStatus('歌詞讀取失敗', 'status');
   }
 }
 
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  return String(s ?? '').replace(/[&<>"]/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;'
+  }[ch]));
 }
 
 function syncLyrics() {
   if (!lyrics.length) return;
 
-  const t = audio.currentTime;
+  const time = audio.currentTime;
   let active = 0;
+
   for (let i = 0; i < lyrics.length; i++) {
-    if (lyrics[i].time <= t) active = i;
-    else break;
+    if (lyrics[i].time <= time) active = i;
   }
 
-  const lines = document.querySelectorAll('.lyric-line');
-  lines.forEach((line, i) => line.classList.toggle('active', i === active));
+  document.querySelectorAll('.lyric-line').forEach((el, index) => {
+    el.classList.toggle('active', index === active);
+  });
 
-  const activeLine = lines[active];
+  const activeLine = document.querySelector(`.lyric-line[data-i="${active}"]`);
   const wrap = document.getElementById('lyrics');
+
   if (!activeLine || !wrap) return;
 
-  const offset = Math.min(0, wrap.clientHeight * 0.48 - activeLine.offsetTop);
-  lyricInner.style.transform = `translateY(${offset}px)`;
+  const target = Math.max(0, wrap.clientHeight * 0.48 - activeLine.offsetTop);
+  lyricInner.style.transform = `translateY(${target}px)`;
 }
 
-function stopCurrentMedia() {
+function stopMedia() {
   clearInterval(bgTimer);
   bgTimer = null;
 
   audio.pause();
   audio.removeAttribute('src');
   audio.load();
-  audio.ontimeupdate = null;
-  audio.onended = null;
-  audio.onerror = null;
 
   pv.pause();
   pv.removeAttribute('src');
   pv.load();
-  pv.onended = null;
-  pv.onerror = null;
   pv.classList.add('hidden');
   document.body.classList.remove('pv-mode');
 }
 
+async function playAudioWithBackground(track) {
+  await rotateBg();
+  bgTimer = setInterval(() => rotateBg(), 40000);
+
+  await loadLyrics(track);
+
+  audio.src = await assetUrl(track.musicpath);
+  audio.ontimeupdate = syncLyrics;
+  audio.onended = startNext;
+  audio.onerror = startNext;
+
+  try {
+    await audio.play();
+  } catch (error) {
+    setLyricStatus('音訊播放失敗', 'status');
+  }
+}
+
 async function playTrack(track) {
   currentTrack = track;
-  stopCurrentMedia();
+  stopMedia();
 
-  document.body.style.fontFamily = payload.config?.settings?.fontFamily || '';
   setScrollingText(titleEl, track.title || '歌曲名');
   setScrollingText(albumEl, track.albumTitle || track.album || '收錄專輯');
   setScrollingText(yearEl, track.year || track.albumYear || '年份');
 
-  const enablePV = payload.config?.settings?.enablePV !== false;
-  if (enablePV && track.videopath) {
+  document.body.style.fontFamily = payload.config.settings.fontFamily || '';
+
+  const canPV = payload.config.settings.enablePV !== false && track.videopath;
+
+  if (canPV) {
     document.body.classList.add('pv-mode');
-    pv.src = await fileUrl(track.videopath);
+    pv.src = await assetUrl(track.videopath);
     pv.classList.remove('hidden');
     pv.onended = startNext;
-    pv.onerror = startNext;
-    await pv.play().catch(startNext);
-    return;
+    pv.onerror = () => playAudioWithBackground(track);
+
+    try {
+      await pv.play();
+      return;
+    } catch (error) {
+      document.body.classList.remove('pv-mode');
+      pv.classList.add('hidden');
+    }
   }
 
-  await rotateBg();
-  bgTimer = setInterval(rotateBg, 40000);
-  await loadLyrics(track);
-
-  audio.src = await fileUrl(track.musicpath);
-  audio.ontimeupdate = syncLyrics;
-  audio.onended = startNext;
-  audio.onerror = startNext;
-  await audio.play().catch(err => {
-    setStatus('播放失敗，請檢查音訊路徑', 'status');
-    console.error(err);
-  });
+  await playAudioWithBackground(track);
 }
 
 function startNext() {
   const track = nextTrack();
-  if (!track) {
-    setStatus('尚未入庫作品', 'status');
-    return;
+  if (track) {
+    playTrack(track);
   }
-  playTrack(track);
 }
 
 async function init() {
   payload = await window.mmcc.getLibrary();
-  if (!payload.tracks || !payload.tracks.length) {
-    setStatus('尚未入庫作品', 'status');
+
+  if (!payload.tracks.length) {
+    setLyricStatus('尚未入庫作品', 'status');
     return;
   }
+
   startNext();
 }
 
-window.addEventListener('DOMContentLoaded', init);
+init().catch(error => {
+  console.error(error);
+  setLyricStatus(`播放器初始化失敗：${error.message}`, 'status');
+});

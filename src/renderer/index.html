@@ -9,6 +9,7 @@
   <aside>
     <h1>音樂輪播台</h1>
     <button data-page="assets" class="active">資產管理</button>
+    <button data-page="albums">專輯管理</button>
     <button data-page="export">資產匯出</button>
     <button data-page="settings">播放設定</button>
     <button data-page="play">正式播放</button>
@@ -17,7 +18,10 @@
   <main>
     <section id="assets" class="page active">
       <h2>資產管理</h2>
-      <p class="hint">把音訊、LRC、PV、背景圖或整個專輯資料夾拖放到這裡入庫。同名檔案會自動配對，例如 <code>song.wav</code> + <code>song.lrc</code> + <code>song.mp4</code>。</p>
+      <p class="hint">
+        把音訊、LRC、PV、背景圖或整個專輯資料夾拖放到這裡入庫。
+        同名檔案會自動配對，例如 <code>song.wav</code> + <code>song.lrc</code> + <code>song.mp4</code>。
+      </p>
 
       <div id="dropzone">拖放檔案或資料夾到這裡</div>
       <div class="actions">
@@ -29,43 +33,72 @@
       <pre id="assetLog"></pre>
 
       <div class="card">
-        <h3>專輯編輯</h3>
-        <div class="album-editor">
-          <label>選擇專輯
-            <select id="albumSelect"></select>
-          </label>
-          <label>專輯名稱
-            <input id="albumTitle" type="text" placeholder="Album title">
-          </label>
-          <label>演出者 / 作者
-            <input id="albumArtist" type="text" placeholder="Artist">
-          </label>
-          <label>年份
-            <input id="albumYear" type="text" placeholder="2026">
-          </label>
-          <label class="wide">備註
-            <textarea id="albumDescription" rows="3"></textarea>
-          </label>
-          <div class="actions wide">
-            <button id="saveAlbumBtn">保存專輯資訊</button>
-          </div>
+        <h3>入庫規則</h3>
+        <p class="hint">
+          選擇單一資料夾時，如果它的下層包含多個專輯資料夾，會自動拆成多張專輯；
+          如果選擇的是單張專輯資料夾，會以該資料夾名稱作為專輯名稱。
+          同一專輯內同名作品不會重複建立，只會補掛或更新同名 LRC / PV。
+        </p>
+      </div>
+    </section>
+
+    <section id="albums" class="page">
+      <h2>專輯管理</h2>
+      <p class="hint">這裡可以一次管理多張專輯。修改後按「保存全部專輯」。已有作品的專輯名稱會同步更新到作品資料。</p>
+
+      <div class="card">
+        <h3>新增專輯</h3>
+        <div class="inline-form">
+          <input id="newAlbumTitle" type="text" placeholder="新專輯名稱">
+          <input id="newAlbumArtist" type="text" placeholder="演出者 / 作者">
+          <input id="newAlbumYear" type="text" placeholder="年份">
+          <button id="addAlbumBtn">新增專輯</button>
         </div>
       </div>
 
       <div class="card">
-        <h3>專輯內作品</h3>
-        <table id="trackTable">
-          <thead>
-            <tr>
-              <th>作品</th>
-              <th>音訊</th>
-              <th>LRC</th>
-              <th>PV</th>
-              <th>PureMusic</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <h3>全部專輯</h3>
+        <div class="table-wrap">
+          <table id="albumTable">
+            <thead>
+              <tr>
+                <th>選中</th>
+                <th>專輯名稱</th>
+                <th>演出者 / 作者</th>
+                <th>年份</th>
+                <th>備註</th>
+                <th>作品數</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button id="saveAllAlbumsBtn">保存全部專輯</button>
+        </div>
+        <p id="albumManagerLog"></p>
+      </div>
+
+      <div class="card">
+        <h3>選中專輯內作品</h3>
+        <label>查看專輯
+          <select id="trackAlbumSelect"></select>
+        </label>
+        <div class="table-wrap">
+          <table id="trackTable">
+            <thead>
+              <tr>
+                <th>作品</th>
+                <th>音訊</th>
+                <th>LRC</th>
+                <th>PV</th>
+                <th>PureMusic</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
 

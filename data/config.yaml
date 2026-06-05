@@ -1,39 +1,487 @@
-version: 0.0.0
-# 第一位：版本改動；第二位：重大改動；第三位：日常改動
-update-date: 05-06-2026
-update-time: 15-46-00
-# 更新日期：DD-MM-YYYY；更新時間：HH-MM-SS
-
-# 這裡放音樂資產庫相關的內容
-music-path: /music
-video-path: /video
-bg-image-path: /bg-image
-# 設定對應資產存放路徑
-
-album: 
-  - id: 1 #每個專輯id是唯一的
-    name: XXX # 專輯名字
-    year: 2026 # 專輯年份
-  - id: 2 #每個專輯id是唯一的
-    name: XXX # 專輯名字
-    year: 2026 # 專輯年份
-
-song:
-  - song-id: 1 #每個歌曲id是唯一的
-    name: XXX #歌曲名字
-    album-id: 1 #專輯id
-    pure: 0 #是否純音樂，是=1 不是=0
-    lyricpath: /music/lyrics/XXX # 歌詞檔案路徑
-    pv: 1 #是否有對應影片，是=1 不是=0
-    videopath: /video/XXX # 影片檔案路徑
-  - song-id: 2 #每個歌曲id是唯一的
-    name: XXX #歌曲名字
-    album-id: 1 #專輯id
-    pure: 1 #是否純音樂，是=1 不是=0
-    pv: 1 #是否有對應影片，是=1 不是=0
-    videopath: /video/XXX # 影片檔案路徑
-  - song-id: 3 #每個歌曲id是唯一的
-    name: XXX #歌曲名字
-    album-id: 1 #專輯id
-    pure: 1 #是否純音樂，是=1 不是=0
-    pv: 0 #是否有對應影片，是=1 不是=0
+version: 2
+settings:
+  fontFamily: Noto Sans TC, Microsoft JhengHei, sans-serif
+  enablePV: true
+  playMode: song-random
+  bgMode: cover
+albums:
+  - id: album-b6589fc6ab
+    title: 虹灣海
+    artist: ""
+    year: "2025"
+    description: ""
+  - id: album-772533555263
+    title: 虹灣海 2
+    artist: ""
+    year: "2026"
+    description: ""
+tracks:
+  - id: track-278828fb5b
+    title: 初音ミク,Misaka Sarina - Rebirth (Instrumental Version)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - Rebirth (Instrumental Version).flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - Rebirth (Instrumental Version).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 89aed0b8cdeb6f73f4e955f3b219a5965b97316c5537666b9042bde1f473827b
+      lyric: 74ace0f620b933860b34277446561c44524cd7ad62bd7ca87122724568a7bc30
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - Rebirth (Instrumental Version).flac
+      lyric: 初音ミク,Misaka Sarina - Rebirth (Instrumental Version).lrc
+    importedAt: 2026-06-05T10:41:59.040Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-380652ed88
+    title: 初音ミク,Misaka Sarina - Rebirth
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - Rebirth.flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - Rebirth.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 99a0901e313c2fb7f66555336880cff731df21013a4ecf32ec2b783b790c1584
+      lyric: 74be37656293dcc5b224894197bb12ea02071f36fbe44979cdbb31a0bd033199
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - Rebirth.flac
+      lyric: 初音ミク,Misaka Sarina - Rebirth.lrc
+    importedAt: 2026-06-05T10:42:01.149Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-51fa0812ad
+    title: 初音ミク,Misaka Sarina - 再見了，曾經的我！ (Instrumental Version)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 再見了，曾經的我！ (Instrumental Version).flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 再見了，曾經的我！ (Instrumental Version).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 455dd171deb2f3de0b58b5bc4675e77288c04a1a73653137f50ab1e57803b4e1
+      lyric: 1451a8fdb4ae881320a7336d7b9931cbb4a0b2acaa0208d19a2b596ae04d343e
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 再見了，曾經的我！ (Instrumental Version).flac
+      lyric: 初音ミク,Misaka Sarina - 再見了，曾經的我！ (Instrumental Version).lrc
+    importedAt: 2026-06-05T10:42:04.723Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-965586a70b
+    title: 初音ミク,Misaka Sarina - 再見了，曾經的我！
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 再見了，曾經的我！.flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 再見了，曾經的我！.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: d4bb757669eea3a719167035112deb507a3c5225edea9d51d0f85ea83b77baf2
+      lyric: 7085d0098bcbae263599bc7c4a44a218a323170f6ebf2dc02d9ee2c698ec9092
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 再見了，曾經的我！.flac
+      lyric: 初音ミク,Misaka Sarina - 再見了，曾經的我！.lrc
+    importedAt: 2026-06-05T10:42:09.486Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-3fde0c05d0
+    title: 初音ミク,Misaka Sarina - 告訴我吧 (Instrumental Version)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 告訴我吧 (Instrumental Version).flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 告訴我吧 (Instrumental Version).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: ce8a22932f1216ef09b4d623600c1f8801a92a6f055227e9a181d37a8a02f9be
+      lyric: 2a27464ca16d327b4281ee888b31fff57cece90ae365cd395a00f880beb86976
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 告訴我吧 (Instrumental Version).flac
+      lyric: 初音ミク,Misaka Sarina - 告訴我吧 (Instrumental Version).lrc
+    importedAt: 2026-06-05T10:42:14.505Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-dd97a47b53
+    title: 初音ミク,Misaka Sarina - 告訴我吧
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 告訴我吧.flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 告訴我吧.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 3995f778772940cc336f104f759952abfcb5ad301a82175518d437e5d6ccf6c7
+      lyric: 3db9e266c1ae9c680c47c2cf09d139b4ce43e5bcd4551b11328c4010b6f4486e
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 告訴我吧.flac
+      lyric: 初音ミク,Misaka Sarina - 告訴我吧.lrc
+    importedAt: 2026-06-05T10:42:20.025Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-db0a7d9b62
+    title: 初音ミク,Misaka Sarina - 夜聲 (Instrumental Version)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 夜聲 (Instrumental Version).flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 夜聲 (Instrumental Version).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: c6e75c6fde5a801a0b7ddc808fa506f4f9b869d825ceaf844fee39943fac3888
+      lyric: 9ca0a87d0bd02627ed50bab1330ea0b78c72c7ea395e9e86bf5de6af2cf9a324
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 夜聲 (Instrumental Version).flac
+      lyric: 初音ミク,Misaka Sarina - 夜聲 (Instrumental Version).lrc
+    importedAt: 2026-06-05T10:42:26.811Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-fe22306856
+    title: 初音ミク,Misaka Sarina - 夜聲
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 夜聲.flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 夜聲.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 618c8b59045706ace9d9f64dca73d7aa7ebf5c3b3824d71e98b16f33dbea369a
+      lyric: a26d22a0672e09476ac6052a2ee339b06510dc2632a592dfc9ded13d38b7a8ec
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 夜聲.flac
+      lyric: 初音ミク,Misaka Sarina - 夜聲.lrc
+    importedAt: 2026-06-05T10:42:34.578Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-cbaca6fe96
+    title: 初音ミク,Misaka Sarina - 天南星的世界 (Instrumental Version)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 天南星的世界 (Instrumental Version).flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 天南星的世界 (Instrumental Version).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: ffd2461142fa12443121b9a66dd2f57634dc6942a56998793635971c3c656296
+      lyric: 21f38faf39d7ae4d1eea46f9c2a798e18c1633ceb59999bc41219fa24e5a6dd4
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 天南星的世界 (Instrumental Version).flac
+      lyric: 初音ミク,Misaka Sarina - 天南星的世界 (Instrumental Version).lrc
+    importedAt: 2026-06-05T10:42:42.894Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-ad07d443a3
+    title: 初音ミク,Misaka Sarina - 天南星的世界
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 天南星的世界.flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 天南星的世界.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: fede892ea9d7f296be5e19652a7bd00e6bb6344fc7eaa3c72a09395fd26aaa18
+      lyric: 487c190261d81e2779f3656bb2a6bb51e667734564d5f71cd336b2ed3be5d689
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 天南星的世界.flac
+      lyric: 初音ミク,Misaka Sarina - 天南星的世界.lrc
+    importedAt: 2026-06-05T10:42:51.824Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-7035c4e7a2
+    title: 初音ミク,Misaka Sarina - 煙花漫天 (Instrumental Version)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 煙花漫天 (Instrumental Version).flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 煙花漫天 (Instrumental Version).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 5e89563f2b2fa7b96d99b72c76c377da603f45876cb61701c3db4c8158d8ee21
+      lyric: d9003f8601d6acb586ea5fc4f8d020a3de84583166fc8f1109aecab389134273
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 煙花漫天 (Instrumental Version).flac
+      lyric: 初音ミク,Misaka Sarina - 煙花漫天 (Instrumental Version).lrc
+    importedAt: 2026-06-05T10:43:00.903Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-cbdff58104
+    title: 初音ミク,Misaka Sarina - 煙花漫天
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 煙花漫天.flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 煙花漫天.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 953cda362d16f626f648f4cc5a12178edb747264156ed2d3c602530e286d1178
+      lyric: 2f36221229fd1ab85c93e0eb6709fffa7b6aa5bb22819afc5c505f7142f3fd23
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 煙花漫天.flac
+      lyric: 初音ミク,Misaka Sarina - 煙花漫天.lrc
+    importedAt: 2026-06-05T10:43:10.298Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-377384006a
+    title: 初音ミク,Misaka Sarina - 相約繁星間 (Instrumental Version)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 相約繁星間 (Instrumental Version).flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 相約繁星間 (Instrumental Version).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: a2002d10684d72226eaa14b6a173fe9826f1a11b31386f615dce4aa7a842022b
+      lyric: 38831a37e5cf781669118e32a3e269760b7dab58884341e25cded20f45a8cdbd
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 相約繁星間 (Instrumental Version).flac
+      lyric: 初音ミク,Misaka Sarina - 相約繁星間 (Instrumental Version).lrc
+    importedAt: 2026-06-05T10:43:20.700Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-91cd584e28
+    title: 初音ミク,Misaka Sarina - 相約繁星間
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 相約繁星間.flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 相約繁星間.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 772f6d3d63efb01a6f47f5f27ad1b3fe49b70061c4484c9b3dd0bf2f1f976336
+      lyric: b4ac834fd9b657a5dccce13f3d5414f37becae7d03fa236d61e6db276dfa56bd
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 相約繁星間.flac
+      lyric: 初音ミク,Misaka Sarina - 相約繁星間.lrc
+    importedAt: 2026-06-05T10:43:31.561Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-8fedee1179
+    title: 初音ミク,Misaka Sarina - 蒼白的夢
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 蒼白的夢.flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 蒼白的夢.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 98dfa0f66ac7ab745e3ba0069edc6d67503a696667949a5cbff176357ca0984c
+      lyric: 1c3c383c8b542b72539fff1e03c57af6a9356db76482e500d6fa10cd86484d3e
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 蒼白的夢.flac
+      lyric: 初音ミク,Misaka Sarina - 蒼白的夢.lrc
+    importedAt: 2026-06-05T10:43:43.614Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-d12b1529f3
+    title: 初音ミク,Misaka Sarina - 雨後 (Instrumental Version)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 雨後 (Instrumental Version).flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 雨後 (Instrumental Version).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: d52d1166509651ae7fd7d3f80967ab07e1e6434d4120372a87f919bf01228907
+      lyric: 431f30e9096b1cdae1e966dc84dc47bdcbc84fcbdca25e77da5e657921a91f66
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 雨後 (Instrumental Version).flac
+      lyric: 初音ミク,Misaka Sarina - 雨後 (Instrumental Version).lrc
+    importedAt: 2026-06-05T10:43:56.321Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-2887b8a869
+    title: 初音ミク,Misaka Sarina - 雨後
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/初音ミク,Misaka Sarina - 雨後.flac
+    lyricpath: music/lyrics/初音ミク,Misaka Sarina - 雨後.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 49f08650d6614704b7927eb83332bb7f2117cfcf29382f39f1872380f38d2b0d
+      lyric: b1fc3a400b42cc7baedd18de9ccb94847849b7c872ecd1f905999f6216009991
+    sourceFiles:
+      music: 初音ミク,Misaka Sarina - 雨後.flac
+      lyric: 初音ミク,Misaka Sarina - 雨後.lrc
+    importedAt: 2026-06-05T10:44:09.500Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-71261d8efd
+    title: 心华,Misaka Sarina - Rebirth
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/心华,Misaka Sarina - Rebirth.flac
+    lyricpath: music/lyrics/心华,Misaka Sarina - Rebirth.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 34cf7e5998adabc71de819d7140c19596725c56af17b82d241a542eb9f0ad5df
+      lyric: 610a005be98f04c5922d1f86aae8dae1aa010b83ba58c7b9b314f49a404c3f6d
+    sourceFiles:
+      music: 心华,Misaka Sarina - Rebirth.flac
+      lyric: 心华,Misaka Sarina - Rebirth.lrc
+    importedAt: 2026-06-05T10:44:23.470Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-8d0f953456
+    title: 心华,Misaka Sarina - 再見了，曾經的我！
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/心华,Misaka Sarina - 再見了，曾經的我！.flac
+    lyricpath: music/lyrics/心华,Misaka Sarina - 再見了，曾經的我！.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: dcb27d3321788f879ce8a0b532990c1cfee27de3c5e2d417dae38a066bb94feb
+      lyric: c3cc93cfa13b562e14ca49f282343fdaa44f820358d095716140dd515fb9ecd6
+    sourceFiles:
+      music: 心华,Misaka Sarina - 再見了，曾經的我！.flac
+      lyric: 心华,Misaka Sarina - 再見了，曾經的我！.lrc
+    importedAt: 2026-06-05T10:44:38.937Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-3cc1a95bf4
+    title: 心华,Misaka Sarina - 告訴我吧
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/心华,Misaka Sarina - 告訴我吧.flac
+    lyricpath: music/lyrics/心华,Misaka Sarina - 告訴我吧.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 0cf2df1060b066a8e28ac9282757d68ca1e47d484e174b2327d8b86612201d71
+      lyric: 66d5afef604b0f26c9553dfab3c46acba70b4c9411c6d2df13e1f3340165b93f
+    sourceFiles:
+      music: 心华,Misaka Sarina - 告訴我吧.flac
+      lyric: 心华,Misaka Sarina - 告訴我吧.lrc
+    importedAt: 2026-06-05T10:44:54.490Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-941762331e
+    title: 心华,Misaka Sarina - 夜聲 (Single)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/心华,Misaka Sarina - 夜聲 (Single).flac
+    lyricpath: music/lyrics/心华,Misaka Sarina - 夜聲 (Single).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 9c87298c5c9afedc2ebcf125dea6ee8b33448fb27204359ef066f5669db91053
+      lyric: 168a1bf0d1a1046143301412a922c911602a6d175f071eb47fc9d740c8ac7294
+    sourceFiles:
+      music: 心华,Misaka Sarina - 夜聲 (Single).flac
+      lyric: 心华,Misaka Sarina - 夜聲 (Single).lrc
+    importedAt: 2026-06-05T10:45:10.034Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-01cd9b0bf6
+    title: 心华,Misaka Sarina - 天南星的世界
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/心华,Misaka Sarina - 天南星的世界.flac
+    lyricpath: music/lyrics/心华,Misaka Sarina - 天南星的世界.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 082ec34516d84177b8ae4dd2b80d00b21e7eb042a61e420940d4a07df6e26476
+      lyric: a0b8a8657991bbbdf90fe6a014370586e8f5784bb9fd922e5774d66fc014a1a8
+    sourceFiles:
+      music: 心华,Misaka Sarina - 天南星的世界.flac
+      lyric: 心华,Misaka Sarina - 天南星的世界.lrc
+    importedAt: 2026-06-05T10:45:25.566Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-3f86d4f527
+    title: 心华,Misaka Sarina - 煙花漫天 (Xinhua Ver)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/心华,Misaka Sarina - 煙花漫天 (Xinhua Ver).flac
+    lyricpath: music/lyrics/心华,Misaka Sarina - 煙花漫天 (Xinhua Ver).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 93d48a16a42dbd252b0ea318b868c0e1a9027a80dd53738cb1f267cd21174377
+      lyric: e4a1cab7e5fc5d81345c0dce32171e447c3c1d67c39265c4b7e123684ccbcfa5
+    sourceFiles:
+      music: 心华,Misaka Sarina - 煙花漫天 (Xinhua Ver).flac
+      lyric: 心华,Misaka Sarina - 煙花漫天 (Xinhua Ver).lrc
+    importedAt: 2026-06-05T10:45:41.742Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-44965a41b3
+    title: 心华,Misaka Sarina - 相約繁星間
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/心华,Misaka Sarina - 相約繁星間.flac
+    lyricpath: music/lyrics/心华,Misaka Sarina - 相約繁星間.lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 593de774b992fd3bc49e1df46de18f7e0fe505504f144f8f246292d66fe4a34b
+      lyric: 693591d4cad2031d965b6c7d0f6c24a5b0a2aed98e446587076f767bf1e79b0f
+    sourceFiles:
+      music: 心华,Misaka Sarina - 相約繁星間.flac
+      lyric: 心华,Misaka Sarina - 相約繁星間.lrc
+    importedAt: 2026-06-05T10:45:56.215Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-025e1b9a71
+    title: 心华,Misaka Sarina - 蒼白的夢 (Take 1)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/心华,Misaka Sarina - 蒼白的夢 (Take 1).flac
+    lyricpath: music/lyrics/心华,Misaka Sarina - 蒼白的夢 (Take 1).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: 1e09a61ad54b76e89b92e29593d515bc676a29c308687d397cad75fc1fc8e317
+      lyric: 9ddb6dbbb1294629706ed77cb8e24e2c340002e15de3b2cca0af9252ac514015
+    sourceFiles:
+      music: 心华,Misaka Sarina - 蒼白的夢 (Take 1).flac
+      lyric: 心华,Misaka Sarina - 蒼白的夢 (Take 1).lrc
+    importedAt: 2026-06-05T10:46:08.892Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+  - id: track-3c72ce2a8c
+    title: 心华,Misaka Sarina - 雨後 (Xinhua Ver)
+    artist: ""
+    albumId: album-b6589fc6ab
+    albumTitle: 虹灣海
+    year: "2025"
+    musicpath: music/data/心华,Misaka Sarina - 雨後 (Xinhua Ver).flac
+    lyricpath: music/lyrics/心华,Misaka Sarina - 雨後 (Xinhua Ver).lrc
+    videopath: ""
+    PureMusic: false
+    hashes:
+      music: c8e4a6f2455c7e35c9397155d3ba1b05968f74db3504674667f7b2b93f789714
+      lyric: c0a566880332dff9206cc22e232f9c4acbfccb3ee336716cd178bbde0b488e04
+    sourceFiles:
+      music: 心华,Misaka Sarina - 雨後 (Xinhua Ver).flac
+      lyric: 心华,Misaka Sarina - 雨後 (Xinhua Ver).lrc
+    importedAt: 2026-06-05T10:46:17.475Z
+    updatedAt: 2026-06-05T10:47:34.644Z
+backgrounds: []

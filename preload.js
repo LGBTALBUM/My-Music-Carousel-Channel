@@ -1,4 +1,5 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
+
 contextBridge.exposeInMainWorld('mmcc', {
   getLibrary: () => ipcRenderer.invoke('library:get'),
   importAssets: paths => ipcRenderer.invoke('asset:import', paths),
@@ -6,5 +7,7 @@ contextBridge.exposeInMainWorld('mmcc', {
   saveSettings: settings => ipcRenderer.invoke('settings:save', settings),
   launchPlayer: () => ipcRenderer.invoke('player:launch'),
   openFolderDialog: () => ipcRenderer.invoke('dialog:openFolder'),
-  openPath: p => ipcRenderer.invoke('shell:openPath', p)
+  openAssetsDialog: () => ipcRenderer.invoke('dialog:openAssets'),
+  openPath: p => ipcRenderer.invoke('shell:openPath', p),
+  getPathForFile: file => webUtils.getPathForFile(file)
 });

@@ -1,7 +1,39 @@
-settings:
-  fontFamily: "Noto Sans TC, Microsoft JhengHei, sans-serif"
-  enablePV: true
-  playMode: song-random
-  bgMode: cover
-library:
-  albums: []
+version: 0.0.0
+# 第一位：版本改動；第二位：重大改動；第三位：日常改動
+update-date: 05-06-2026
+update-time: 15-46-00
+# 更新日期：DD-MM-YYYY；更新時間：HH-MM-SS
+
+# 這裡放音樂資產庫相關的內容
+music-path: /music
+video-path: /video
+bg-image-path: /bg-image
+# 設定對應資產存放路徑
+
+album: 
+  - id: 1 #每個專輯id是唯一的
+    name: XXX # 專輯名字
+    year: 2026 # 專輯年份
+  - id: 2 #每個專輯id是唯一的
+    name: XXX # 專輯名字
+    year: 2026 # 專輯年份
+
+song:
+  - song-id: 1 #每個歌曲id是唯一的
+    name: XXX #歌曲名字
+    album-id: 1 #專輯id
+    pure: 0 #是否純音樂，是=1 不是=0
+    lyricpath: /music/lyrics/XXX # 歌詞檔案路徑
+    pv: 1 #是否有對應影片，是=1 不是=0
+    videopath: /video/XXX # 影片檔案路徑
+  - song-id: 2 #每個歌曲id是唯一的
+    name: XXX #歌曲名字
+    album-id: 1 #專輯id
+    pure: 1 #是否純音樂，是=1 不是=0
+    pv: 1 #是否有對應影片，是=1 不是=0
+    videopath: /video/XXX # 影片檔案路徑
+  - song-id: 3 #每個歌曲id是唯一的
+    name: XXX #歌曲名字
+    album-id: 1 #專輯id
+    pure: 1 #是否純音樂，是=1 不是=0
+    pv: 0 #是否有對應影片，是=1 不是=0

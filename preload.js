@@ -21,6 +21,15 @@ contextBridge.exposeInMainWorld('mmcc', {
   updateAlbums: patches => ipcRenderer.invoke('album:updateMany', patches),
   deleteAlbum: albumId => ipcRenderer.invoke('album:delete', albumId),
 
+  bindTracksToAlbum: (trackIds, albumId) => ipcRenderer.invoke('track:bindAlbum', { trackIds, albumId }),
+  bindPvToTrack: (trackId, videoPath) => ipcRenderer.invoke('track:bindPv', { trackId, videoPath }),
+  unbindPvFromTrack: trackId => ipcRenderer.invoke('track:unbindPv', trackId),
+
+  listPvs: () => ipcRenderer.invoke('pvs:list'),
+  importPvs: paths => ipcRenderer.invoke('pvs:import', paths),
+  chooseAndImportPvs: () => ipcRenderer.invoke('pvs:chooseAndImport'),
+  autoBindPvs: () => ipcRenderer.invoke('pvs:autoBind'),
+
   exportDataZip: () => ipcRenderer.invoke('data:exportZip'),
   launchPlayer: () => ipcRenderer.invoke('player:launch'),
 

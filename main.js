@@ -534,11 +534,20 @@ async function importAssets(inputPaths) {
         await attachOptionalAsset(existingTrack, 'lyric', lrc, log);
         await attachOptionalAsset(existingTrack, 'video', video, log);
       } else {
-        const suffix = [
-          group.lrc.length ? `${group.lrc.length} 個 LRC` : '',
-          group.video.length ? `${group.video.length} 個 PV` : ''
-        ].filter(Boolean).join(' + ');
-        log.warnings.push(`${groupLabel}：找到 ${suffix || '非音訊資產'}，但沒有同名音訊，未建立作品`);
+        if (group.video.length) {
+          for (const pvCandidate of group.video) {
+            const copiedPv = await copyAsset(pvCandidate.filePath, 'video');
+            log.updatedTracks.push(`${groupLabel}：已作為獨立 PV 入庫，稍後可在「綁定管理」綁定歌曲：${copiedPv.filename}`);
+          }
+        }
+
+        if (group.lrc.length) {
+          log.warnings.push(`${groupLabel}：找到 ${group.lrc.length} 個 LRC，但沒有同名音訊，未建立作品`);
+        }
+
+        if (!group.video.length && !group.lrc.length) {
+          log.warnings.push(`${groupLabel}：沒有可建立作品的音訊檔`);
+        }
       }
       continue;
     }
@@ -643,6 +652,7 @@ async function getLibrary() {
     config,
     albums: config.albums,
     tracks,
+    videos: await listVideoLibrary(config),
     bgImages: config.backgrounds.map(bg => bg.path)
   };
 }
@@ -656,6 +666,228 @@ function assertInsideDataDir(relPath) {
   }
 
   return abs;
+}
+
+
+async function listVideoLibrary(configInput = null) {
+  const config = configInput || await loadConfig();
+  const videoDir = path.join(DATA_DIR, 'video');
+
+  if (!(await exists(videoDir))) return [];
+
+  const all = await listFilesDeep(videoDir).catch(() => []);
+  const usedByPath = new Map();
+
+  for (const track of config.tracks || []) {
+    const rel = normalizeRel(track.videopath || '');
+    if (!rel) continue;
+    if (!usedByPath.has(rel)) usedByPath.set(rel, []);
+    usedByPath.get(rel).push({ id: track.id, title: track.title, albumId: track.albumId, albumTitle: track.albumTitle });
+  }
+
+  const videos = [];
+
+  for (const filePath of all) {
+    if (!VIDEO_EXT.has(path.extname(filePath).toLowerCase())) continue;
+
+    const rel = normalizeRel(path.relative(DATA_DIR, filePath));
+    let hash = '';
+    try {
+      hash = await hashFile(filePath);
+    } catch {}
+
+    videos.push({
+      path: rel,
+      filename: path.basename(filePath),
+      stem: path.basename(filePath, path.extname(filePath)),
+      hash,
+      usedBy: usedByPath.get(rel) || []
+    });
+  }
+
+  return videos.sort((a, b) => a.filename.localeCompare(b.filename, 'zh-Hant'));
+}
+
+async function importPvLibrary(inputPaths) {
+  await ensureDataDirs();
+
+  const { files, skipped } = await collectInputFiles(inputPaths || []);
+  const log = {
+    added: [],
+    skipped: [...skipped],
+    warnings: []
+  };
+
+  for (const item of files) {
+    if (classify(item.filePath) !== 'video') {
+      log.skipped.push(`非 PV 檔案，略過：${path.basename(item.filePath)}`);
+      continue;
+    }
+
+    const copied = await copyAsset(item.filePath, 'video');
+    if (copied.duplicateFile) {
+      log.skipped.push(`PV 已存在，略過複製：${copied.filename}`);
+    } else {
+      log.added.push(`新增 PV：${copied.filename}`);
+    }
+  }
+
+  return { ok: true, log, videos: await listVideoLibrary() };
+}
+
+async function chooseAndImportPvs() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '選擇要入庫的 PV 檔案或資料夾',
+    properties: ['openFile', 'openDirectory', 'multiSelections'],
+    filters: [
+      { name: 'PV / Video', extensions: [...VIDEO_EXT].map(ext => ext.slice(1)) },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths.length) return { ok: false, canceled: true };
+  return importPvLibrary(result.filePaths);
+}
+
+async function bindTracksToAlbum({ trackIds, albumId }) {
+  const config = await loadConfig();
+  const ids = Array.isArray(trackIds) ? trackIds : [];
+  const album = config.albums.find(item => item.id === albumId);
+
+  if (!album) return { ok: false, error: 'Album not found' };
+  if (!ids.length) return { ok: false, error: '沒有選擇歌曲' };
+
+  let updated = 0;
+  const skipped = [];
+  const now = new Date().toISOString();
+  const selectedIds = new Set(ids);
+  const occupiedTitleKeys = new Map();
+
+  for (const track of config.tracks) {
+    if (track.albumId !== album.id) continue;
+    if (selectedIds.has(track.id)) continue;
+    occupiedTitleKeys.set(normalizeKey(track.title), track);
+  }
+
+  for (const track of config.tracks) {
+    if (!selectedIds.has(track.id)) continue;
+
+    const key = normalizeKey(track.title);
+    const duplicate = occupiedTitleKeys.get(key);
+    if (duplicate && duplicate.id !== track.id) {
+      skipped.push(`${track.title}：目標專輯已有同名歌曲，已跳過`);
+      continue;
+    }
+
+    track.albumId = album.id;
+    track.albumTitle = album.title;
+    if (!track.artist) track.artist = album.artist || '';
+    if (!track.year) track.year = album.year || '';
+    track.updatedAt = now;
+    occupiedTitleKeys.set(key, track);
+    updated++;
+  }
+
+  await saveConfig(config);
+  return { ok: true, updated, skipped };
+}
+
+async function bindPvToTrack({ trackId, videoPath }) {
+  const config = await loadConfig();
+  const track = config.tracks.find(item => item.id === trackId);
+  const rel = normalizeRel(videoPath || '');
+
+  if (!track) return { ok: false, error: 'Track not found' };
+  if (!rel) return { ok: false, error: '沒有選擇 PV' };
+
+  const abs = assertInsideDataDir(rel);
+  if (!(await exists(abs))) return { ok: false, error: `PV 檔案不存在：${rel}` };
+  if (!VIDEO_EXT.has(path.extname(abs).toLowerCase())) return { ok: false, error: '選擇的檔案不是支援的 PV 格式' };
+
+  track.videopath = rel;
+  track.hashes ||= {};
+  track.sourceFiles ||= {};
+  track.hashes.video = await hashFile(abs).catch(() => '');
+  track.sourceFiles.video = path.basename(abs);
+  track.updatedAt = new Date().toISOString();
+
+  await saveConfig(config);
+  return { ok: true, track };
+}
+
+async function unbindPvFromTrack(trackId) {
+  const config = await loadConfig();
+  const track = config.tracks.find(item => item.id === trackId);
+
+  if (!track) return { ok: false, error: 'Track not found' };
+
+  track.videopath = '';
+  if (track.hashes) delete track.hashes.video;
+  if (track.sourceFiles) delete track.sourceFiles.video;
+  track.updatedAt = new Date().toISOString();
+
+  await saveConfig(config);
+  return { ok: true, track };
+}
+
+async function autoBindPvsByName() {
+  const config = await loadConfig();
+  const videos = await listVideoLibrary(config);
+  const availableVideos = videos.filter(video => video.usedBy.length === 0);
+
+  const tracksByTitle = new Map();
+  for (const track of config.tracks) {
+    const key = normalizeKey(track.title);
+    if (!tracksByTitle.has(key)) tracksByTitle.set(key, []);
+    tracksByTitle.get(key).push(track);
+  }
+
+  const videosByStem = new Map();
+  for (const video of availableVideos) {
+    const key = normalizeKey(video.stem);
+    if (!videosByStem.has(key)) videosByStem.set(key, []);
+    videosByStem.get(key).push(video);
+  }
+
+  const log = { bound: [], skipped: [], warnings: [] };
+  let updated = 0;
+
+  for (const [key, tracks] of tracksByTitle.entries()) {
+    const candidates = videosByStem.get(key) || [];
+    if (!candidates.length) continue;
+
+    if (tracks.length !== 1) {
+      log.warnings.push(`歌曲名重複，無法自動判斷：${tracks.map(track => track.title).join(', ')}`);
+      continue;
+    }
+
+    if (candidates.length !== 1) {
+      log.warnings.push(`PV 同名檔超過 1 個，無法自動判斷：${candidates.map(video => video.filename).join(', ')}`);
+      continue;
+    }
+
+    const track = tracks[0];
+    if (track.videopath) {
+      log.skipped.push(`已經有 PV，略過：${track.title}`);
+      continue;
+    }
+
+    const video = candidates[0];
+    const abs = assertInsideDataDir(video.path);
+
+    track.videopath = video.path;
+    track.hashes ||= {};
+    track.sourceFiles ||= {};
+    track.hashes.video = await hashFile(abs).catch(() => video.hash || '');
+    track.sourceFiles.video = video.filename;
+    track.updatedAt = new Date().toISOString();
+    updated++;
+
+    log.bound.push(`${track.title} ⇐ ${video.filename}`);
+  }
+
+  await saveConfig(config);
+  return { ok: true, updated, log };
 }
 
 async function exportDataZip() {
@@ -906,3 +1138,12 @@ ipcMain.handle('player:launch', () => {
 
 ipcMain.handle('data:fileUrl', (_event, relPath) => pathToFileURL(assertInsideDataDir(relPath)).href);
 ipcMain.handle('data:readText', async (_event, relPath) => fs.readFile(assertInsideDataDir(relPath), 'utf8'));
+
+ipcMain.handle('pvs:list', async () => ({ ok: true, videos: await listVideoLibrary() }));
+ipcMain.handle('pvs:import', async (_event, paths) => importPvLibrary(paths));
+ipcMain.handle('pvs:chooseAndImport', chooseAndImportPvs);
+ipcMain.handle('pvs:autoBind', autoBindPvsByName);
+
+ipcMain.handle('track:bindAlbum', (_event, payload) => bindTracksToAlbum(payload));
+ipcMain.handle('track:bindPv', (_event, payload) => bindPvToTrack(payload));
+ipcMain.handle('track:unbindPv', (_event, trackId) => unbindPvFromTrack(trackId));

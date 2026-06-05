@@ -3,9 +3,10 @@ const $$ = selector => Array.from(document.querySelectorAll(selector));
 
 let library = null;
 let selectedAlbumId = '';
+let selectedTrackIds = new Set();
 
 function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"]/g, ch => ({
+  return String(s ?? '').replace(/[&<>\"]/g, ch => ({
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
@@ -21,15 +22,19 @@ function formatImportResult(result) {
   const log = result.log || {};
   const lines = [];
 
-  lines.push(`入庫完成：專輯 ${result.counts.albums} / 作品 ${result.counts.tracks} / 背景圖 ${result.counts.backgrounds}`);
+  if (result.counts) {
+    lines.push(`入庫完成：專輯 ${result.counts.albums} / 作品 ${result.counts.tracks} / 背景圖 ${result.counts.backgrounds}`);
+  } else {
+    lines.push('處理完成。');
+  }
 
   const sections = [
     ['新增作品', log.addedTracks],
-    ['更新作品', log.updatedTracks],
+    ['更新 / 掛載', log.updatedTracks || log.added],
     ['跳過作品', log.skippedTracks],
     ['背景圖', log.backgrounds],
-    ['同名驗證 / 警告', log.warnings],
-    ['跳過檔案', log.skippedFiles]
+    ['警告', log.warnings],
+    ['跳過檔案', log.skippedFiles || log.skipped]
   ];
 
   for (const [title, items] of sections) {
@@ -39,6 +44,26 @@ function formatImportResult(result) {
   }
 
   return lines.join('\n');
+}
+
+function formatGenericLog(log) {
+  if (!log) return '';
+  const lines = [];
+  for (const [title, items] of [
+    ['已綁定', log.bound],
+    ['新增', log.added],
+    ['略過', log.skipped],
+    ['警告', log.warnings]
+  ]) {
+    if (!items || !items.length) continue;
+    lines.push(`[${title}]`);
+    lines.push(...items.map(x => `- ${x}`));
+  }
+  return lines.join('\n') || '沒有可處理項目。';
+}
+
+function getAlbumTitle(albumId) {
+  return (library?.albums || []).find(album => album.id === albumId)?.title || '未分類';
 }
 
 function currentSettingsFromForm() {
@@ -62,12 +87,13 @@ function renderStats() {
   const albums = library?.albums?.length || 0;
   const tracks = library?.tracks?.length || 0;
   const bg = library?.bgImages?.length || 0;
+  const videos = library?.videos?.length || 0;
 
   $('#libraryStats').innerHTML = `
-    <strong>目前作品：</strong>${tracks} 首<br>
-    <strong>專輯：</strong>${albums} 張<br>
-    <strong>背景圖：</strong>${bg} 張<br>
-    <strong>data：</strong>${escapeHtml(library?.dataDir || '')}
+    <div><strong>${tracks}</strong><span>作品</span></div>
+    <div><strong>${albums}</strong><span>專輯</span></div>
+    <div><strong>${videos}</strong><span>PV</span></div>
+    <div><strong>${bg}</strong><span>背景圖</span></div>
   `;
 }
 
@@ -85,6 +111,13 @@ function ensureSelectedAlbum() {
   if (!selectedAlbumId || !albums.some(a => a.id === selectedAlbumId)) {
     selectedAlbumId = albums[0].id;
   }
+}
+
+function albumOptions(includeAll = false) {
+  const prefix = includeAll ? '<option value="__all__">全部專輯</option>' : '';
+  return prefix + (library?.albums || []).map(album => `
+    <option value="${escapeHtml(album.id)}">${escapeHtml(album.title)}${album.year ? ` (${escapeHtml(album.year)})` : ''}</option>
+  `).join('');
 }
 
 function renderAlbumTable() {
@@ -117,17 +150,9 @@ function renderAlbumTable() {
 
 function renderAlbumSelect() {
   const select = $('#trackAlbumSelect');
-  select.innerHTML = '';
+  select.innerHTML = albumOptions(false);
 
-  const albums = library?.albums || [];
-  for (const album of albums) {
-    const option = document.createElement('option');
-    option.value = album.id;
-    option.textContent = `${album.title}${album.year ? ` (${album.year})` : ''}`;
-    select.appendChild(option);
-  }
-
-  if (selectedAlbumId && albums.some(a => a.id === selectedAlbumId)) {
+  if (selectedAlbumId && (library?.albums || []).some(a => a.id === selectedAlbumId)) {
     select.value = selectedAlbumId;
   }
 }
@@ -153,8 +178,8 @@ function renderTrackTable() {
     tr.innerHTML = `
       <td>${escapeHtml(track.title || '')}</td>
       <td class="path-cell">${escapeHtml(track.musicpath || '')}</td>
-      <td>${track.lyricpath ? '有' : '無'}</td>
-      <td>${track.videopath ? '有' : '無'}</td>
+      <td>${track.lyricpath ? '<span class="pill ok">有</span>' : '<span class="pill">無</span>'}</td>
+      <td>${track.videopath ? '<span class="pill ok">有</span>' : '<span class="pill">無</span>'}</td>
       <td>${track.PureMusic ? '是' : '否'}</td>
     `;
     tbody.appendChild(tr);
@@ -168,16 +193,104 @@ function renderAlbums() {
   renderTrackTable();
 }
 
+function getFilteredBindTracks() {
+  const filter = $('#bindFilterAlbum')?.value || '__all__';
+  const tracks = library?.tracks || [];
+  return filter === '__all__' ? tracks : tracks.filter(track => track.albumId === filter);
+}
+
+function renderBindControls() {
+  const filter = $('#bindFilterAlbum');
+  const target = $('#bindTargetAlbum');
+  const oldFilter = filter.value || '__all__';
+  const oldTarget = target.value || selectedAlbumId;
+
+  filter.innerHTML = albumOptions(true);
+  target.innerHTML = albumOptions(false);
+
+  filter.value = [...filter.options].some(opt => opt.value === oldFilter) ? oldFilter : '__all__';
+  if ([...target.options].some(opt => opt.value === oldTarget)) target.value = oldTarget;
+}
+
+function renderBindTrackTable() {
+  const tbody = $('#bindTrackTable tbody');
+  const tracks = getFilteredBindTracks();
+  tbody.innerHTML = '';
+
+  if (!tracks.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted">沒有可顯示的歌曲。</td></tr>';
+    return;
+  }
+
+  for (const track of tracks) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="checkbox" class="bind-track-check" value="${escapeHtml(track.id)}" ${selectedTrackIds.has(track.id) ? 'checked' : ''}></td>
+      <td><strong>${escapeHtml(track.title)}</strong></td>
+      <td>${escapeHtml(getAlbumTitle(track.albumId))}</td>
+      <td class="path-cell">${escapeHtml(track.musicpath || '')}</td>
+      <td>${track.videopath ? `<span class="pill ok">${escapeHtml(track.videopath.split('/').pop())}</span>` : '<span class="pill">未綁定</span>'}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderPvSelectors() {
+  const trackSelect = $('#pvTrackSelect');
+  const pvSelect = $('#pvFileSelect');
+  const oldTrack = trackSelect.value;
+  const oldPv = pvSelect.value;
+
+  trackSelect.innerHTML = (library?.tracks || []).map(track => `
+    <option value="${escapeHtml(track.id)}">${escapeHtml(track.title)} · ${escapeHtml(getAlbumTitle(track.albumId))}${track.videopath ? ' · 已有PV' : ''}</option>
+  `).join('');
+
+  pvSelect.innerHTML = (library?.videos || []).map(video => `
+    <option value="${escapeHtml(video.path)}">${escapeHtml(video.filename)}${video.usedBy?.length ? ' · 已綁定' : ''}</option>
+  `).join('');
+
+  if ([...trackSelect.options].some(opt => opt.value === oldTrack)) trackSelect.value = oldTrack;
+  if ([...pvSelect.options].some(opt => opt.value === oldPv)) pvSelect.value = oldPv;
+}
+
+function renderPvTable() {
+  const tbody = $('#pvTable tbody');
+  const videos = library?.videos || [];
+  tbody.innerHTML = '';
+
+  if (!videos.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="muted">PV 池目前是空的。請先入庫 PV。</td></tr>';
+    return;
+  }
+
+  for (const video of videos) {
+    const used = video.usedBy || [];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="path-cell"><strong>${escapeHtml(video.filename)}</strong><br>${escapeHtml(video.path)}</td>
+      <td>${used.length ? '<span class="pill ok">已綁定</span>' : '<span class="pill warn">未綁定</span>'}</td>
+      <td>${used.length ? used.map(item => `${escapeHtml(item.title)} · ${escapeHtml(getAlbumTitle(item.albumId))}`).join('<br>') : '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderBinding() {
+  renderBindControls();
+  renderBindTrackTable();
+  renderPvSelectors();
+  renderPvTable();
+}
+
 async function loadLibrary(preferredAlbumId = '') {
   library = await window.mmcc.getLibrary();
 
-  if (preferredAlbumId) {
-    selectedAlbumId = preferredAlbumId;
-  }
+  if (preferredAlbumId) selectedAlbumId = preferredAlbumId;
 
   fillSettingsForm();
   renderStats();
   renderAlbums();
+  renderBinding();
 }
 
 async function runImport(paths) {
@@ -318,6 +431,81 @@ function bindAlbumManager() {
   });
 }
 
+function bindBindingManager() {
+  $('#bindFilterAlbum').addEventListener('change', () => renderBindTrackTable());
+
+  $('#bindTrackTable').addEventListener('change', event => {
+    const checkbox = event.target.closest('.bind-track-check');
+    if (!checkbox) return;
+    if (checkbox.checked) selectedTrackIds.add(checkbox.value);
+    else selectedTrackIds.delete(checkbox.value);
+  });
+
+  $('#selectAllVisibleTracksBtn').addEventListener('click', () => {
+    for (const track of getFilteredBindTracks()) selectedTrackIds.add(track.id);
+    renderBindTrackTable();
+  });
+
+  $('#clearSelectedTracksBtn').addEventListener('click', () => {
+    selectedTrackIds.clear();
+    renderBindTrackTable();
+  });
+
+  $('#bindSelectedTracksBtn').addEventListener('click', async () => {
+    const albumId = $('#bindTargetAlbum').value;
+    const trackIds = Array.from(selectedTrackIds);
+    const result = await window.mmcc.bindTracksToAlbum(trackIds, albumId);
+
+    $('#bindAlbumLog').textContent = result.ok
+      ? [`已更新 ${result.updated} 首歌曲的專輯綁定。`, ...(result.skipped || []).map(item => `- ${item}`)].join('\n')
+      : `綁定失敗：${result.error || 'unknown error'}`;
+
+    if (result.ok) {
+      selectedTrackIds.clear();
+      await loadLibrary(albumId);
+    }
+  });
+
+  $('#choosePvsBtn').addEventListener('click', async () => {
+    $('#bindPvLog').textContent = 'PV 入庫中，請稍候...';
+    const result = await window.mmcc.chooseAndImportPvs();
+    $('#bindPvLog').textContent = formatImportResult(result);
+    await loadLibrary(selectedAlbumId);
+  });
+
+  $('#autoBindPvBtn').addEventListener('click', async () => {
+    $('#bindPvLog').textContent = '正在按同名自動綁定 PV...';
+    const result = await window.mmcc.autoBindPvs();
+    $('#bindPvLog').textContent = result.ok
+      ? `自動綁定完成：${result.updated} 個。\n${formatGenericLog(result.log)}`
+      : `自動綁定失敗：${result.error || 'unknown error'}`;
+    await loadLibrary(selectedAlbumId);
+  });
+
+  $('#bindPvBtn').addEventListener('click', async () => {
+    const trackId = $('#pvTrackSelect').value;
+    const videoPath = $('#pvFileSelect').value;
+    const result = await window.mmcc.bindPvToTrack(trackId, videoPath);
+
+    $('#bindPvLog').textContent = result.ok
+      ? 'PV 已綁定到歌曲。'
+      : `PV 綁定失敗：${result.error || 'unknown error'}`;
+
+    if (result.ok) await loadLibrary(selectedAlbumId);
+  });
+
+  $('#unbindPvBtn').addEventListener('click', async () => {
+    const trackId = $('#pvTrackSelect').value;
+    const result = await window.mmcc.unbindPvFromTrack(trackId);
+
+    $('#bindPvLog').textContent = result.ok
+      ? '已移除該歌曲的 PV 綁定。'
+      : `移除失敗：${result.error || 'unknown error'}`;
+
+    if (result.ok) await loadLibrary(selectedAlbumId);
+  });
+}
+
 function bindSettings() {
   async function saveAndMaybeLaunch(launch = false) {
     const result = await window.mmcc.saveSettings(currentSettingsFromForm());
@@ -347,6 +535,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindNavigation();
   bindAssetImport();
   bindAlbumManager();
+  bindBindingManager();
   bindSettings();
   await loadLibrary();
 });

@@ -10,6 +10,7 @@ body {
   background: #0b0b0b;
   color: #fff;
   font-family: system-ui, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  overflow: hidden;
 }
 
 button,
@@ -23,11 +24,9 @@ button {
 }
 
 /* Admin */
-.admin {
+body.admin {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
-  background: #0b0b0b;
+  overflow: hidden;
 }
-
-.admin

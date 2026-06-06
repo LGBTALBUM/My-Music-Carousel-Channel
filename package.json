@@ -1,6 +1,10 @@
 {
   "name": "my-music-carousel-channel",
+<<<<<<< HEAD
   "version": "0.4.0",
+=======
+  "version": "0.4.2",
+>>>>>>> 45d1d53 (Release v0.4.2.1)
   "description": "Local music carousel channel with asset manager and fullscreen player",
   "main": "main.js",
   "scripts": {

@@ -17,6 +17,10 @@
     <button data-page="assets" class="active">資產管理</button>
     <button data-page="albums">專輯管理</button>
     <button data-page="bind">綁定管理</button>
+<<<<<<< HEAD
+=======
+    <button data-page="delete">刪除管理</button>
+>>>>>>> 45d1d53 (Release v0.4.2.1)
     <button data-page="export">資產匯出</button>
     <button data-page="settings">播放設定</button>
     <button data-page="play">正式播放</button>
@@ -165,6 +169,10 @@
                 <th>歌曲</th>
                 <th>目前專輯</th>
                 <th>音訊</th>
+<<<<<<< HEAD
+=======
+                <th>LRC</th>
+>>>>>>> 45d1d53 (Release v0.4.2.1)
                 <th>PV</th>
               </tr>
             </thead>
@@ -173,6 +181,52 @@
         </div>
       </div>
 
+<<<<<<< HEAD
+=======
+
+      <div class="card grid-2">
+        <div>
+          <h3>LRC 綁定歌曲</h3>
+          <p class="hint">可以先把 LRC 檔案入庫到 LRC 池，再手動或自動綁定到歌曲。</p>
+          <div class="actions">
+            <button id="chooseLrcsBtn">選擇 LRC 入庫</button>
+            <button id="autoBindLrcBtn" class="primary">按同名自動綁定 LRC</button>
+          </div>
+          <div class="inline-form stackable">
+            <label>歌曲
+              <select id="lrcTrackSelect"></select>
+            </label>
+            <label>LRC
+              <select id="lrcFileSelect"></select>
+            </label>
+            <button id="bindLrcBtn" class="primary">綁定 LRC</button>
+            <button id="unbindLrcBtn" class="danger">移除該歌曲 LRC</button>
+          </div>
+          <p id="bindLrcLog"></p>
+        </div>
+        <div class="mini-card">
+          <strong>自動綁定規則</strong>
+          <p>只有「歌曲名」與「LRC 檔名 stem」完全同名，且雙方都唯一時才會自動綁定；遇到重名會跳過並提示，避免誤綁。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>LRC 池</h3>
+        <div class="table-wrap">
+          <table id="lrcTable">
+            <thead>
+              <tr>
+                <th>LRC 檔案</th>
+                <th>狀態</th>
+                <th>已綁定歌曲</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
       <div class="card grid-2">
         <div>
           <h3>PV 綁定歌曲</h3>
@@ -216,6 +270,74 @@
       </div>
     </section>
 
+<<<<<<< HEAD
+=======
+
+    <section id="delete" class="page">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">Delete</p>
+          <h2>刪除管理</h2>
+        </div>
+      </div>
+      <p class="hint">這裡可以刪除歌曲記錄，也可以直接刪除 <code>data</code> 內的 LRC、歌曲音訊、PV、背景圖檔案。直接刪除檔案時，系統會同步清理 config.yaml 裡的引用。</p>
+
+      <div class="card">
+        <h3>歌曲刪除</h3>
+        <p class="hint">「只刪記錄」會保留 data 裡的檔案；「刪記錄+未被引用檔案」會同時清掉這首歌專用的音訊、LRC、PV。</p>
+        <div class="table-wrap">
+          <table id="deleteTrackTable">
+            <thead>
+              <tr>
+                <th>歌曲</th>
+                <th>專輯</th>
+                <th>音訊</th>
+                <th>LRC</th>
+                <th>PV</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="deleteTrackLog"></p>
+      </div>
+
+      <div class="card">
+        <h3>/data 檔案刪除</h3>
+        <p class="hint">可直接刪除 data 內的檔案。刪除音訊會移除使用該音訊的歌曲；刪除 LRC/PV 會清掉對應綁定；刪除 BG 會移除背景圖記錄。</p>
+        <div class="inline-form">
+          <label>類型
+            <select id="deleteFileFilter">
+              <option value="__all__">全部</option>
+              <option value="song">歌曲音訊</option>
+              <option value="lrc">LRC</option>
+              <option value="pv">PV</option>
+              <option value="bg">BG</option>
+              <option value="other">其他</option>
+            </select>
+          </label>
+          <button id="reloadDeleteFilesBtn">重新整理</button>
+        </div>
+        <div class="table-wrap">
+          <table id="dataFileTable">
+            <thead>
+              <tr>
+                <th>類型</th>
+                <th>檔案</th>
+                <th>大小</th>
+                <th>引用</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="deleteFileLog"></p>
+      </div>
+    </section>
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
     <section id="export" class="page">
       <div class="page-title">
         <div>
@@ -257,13 +379,50 @@
             <option value="contain">保持原比例</option>
           </select>
         </label>
+<<<<<<< HEAD
+=======
+        <label>FFmpeg 路徑
+          <input id="ffmpegPath" type="text" placeholder="留空使用系統 ffmpeg">
+        </label>
+        <label>轉碼 GPU
+          <select id="transcodeGpuMode">
+            <option value="auto">Auto：自動偵測</option>
+            <option value="off">Off：CPU / libx264</option>
+            <option value="videotoolbox">macOS VideoToolbox</option>
+            <option value="nvenc">NVIDIA NVENC / CUDA</option>
+            <option value="qsv">Intel QSV</option>
+            <option value="amf">AMD AMF</option>
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="playbackGpu"> 播放時啟用 Chromium GPU
+        </label>
+      </div>
+
+      <div class="card data-root-card">
+        <h3>DATA 位置</h3>
+        <p class="hint">可把 DATA 放到任意有存取權限的位置。預設嘗試使用 <code>/MMCCDB/DATA</code>；若系統無權限，會退回使用者家目錄下的 <code>MMCCDB/DATA</code>。</p>
+        <div class="inline-form wide">
+          <input id="dataRootPath" type="text" placeholder="/MMCCDB/DATA">
+          <button id="chooseDataRootBtn">選擇 DATA 資料夾</button>
+          <button id="applyDataRootBtn" class="primary">套用 DATA 位置</button>
+          <button id="resetDataRootBtn">回到預設</button>
+        </div>
+        <p id="dataRootLog" class="hint"></p>
+>>>>>>> 45d1d53 (Release v0.4.2.1)
       </div>
       <div class="actions">
         <button id="saveBtn" class="primary">Save</button>
         <button id="applyBtn">Apply</button>
         <button id="cancelBtn">Cancel</button>
         <button id="launchBtn">Launch</button>
+<<<<<<< HEAD
       </div>
+=======
+        <button id="convertMediaBtn">轉換既有不相容媒體</button>
+      </div>
+      <p class="hint">ProRes MOV 會轉為 H.264 MP4；AIF / AIFF / AIFC 會轉為 WAV。GPU 轉碼會優先使用 VideoToolbox / NVENC / QSV / AMF；MPS、Radeon ProRender、OctaneRender 屬於運算/渲染框架，不是 FFmpeg H.264 編碼器，因此不直接作為本流程的選項。</p>
+>>>>>>> 45d1d53 (Release v0.4.2.1)
       <p id="settingsLog"></p>
     </section>
 

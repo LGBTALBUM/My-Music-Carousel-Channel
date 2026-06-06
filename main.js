@@ -1,11 +1,16 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+<<<<<<< HEAD
+=======
+const os = require('os');
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 const fs = require('fs/promises');
 const fssync = require('fs');
 const crypto = require('crypto');
 const YAML = require('yaml');
 const archiver = require('archiver');
 const { pathToFileURL } = require('url');
+<<<<<<< HEAD
 
 const ROOT_DIR = __dirname;
 const DATA_DIR = path.join(ROOT_DIR, 'data');
@@ -14,6 +19,29 @@ const CONFIG_PATH = path.join(DATA_DIR, 'config.yaml');
 const AUDIO_EXT = new Set(['.wav', '.flac', '.aiff', '.aif', '.m4a', '.mp3', '.ogg', '.opus', '.aac']);
 const LRC_EXT = new Set(['.lrc']);
 const VIDEO_EXT = new Set(['.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi']);
+=======
+const { spawn } = require('child_process');
+
+const ROOT_DIR = __dirname;
+const ROOT_FALLBACK_DATA_DIR = process.platform === 'win32'
+  ? path.join(path.parse(process.cwd()).root || 'C:\\', 'MMCCDB', 'DATA')
+  : path.join(path.parse(os.homedir()).root || '/', 'MMCCDB', 'DATA');
+
+let DATA_DIR = process.env.MMCC_DATA_DIR || ROOT_FALLBACK_DATA_DIR;
+let CONFIG_PATH = path.join(DATA_DIR, 'config.yaml');
+let LOCAL_STATE_PATH = '';
+let dataRootFallbackNotice = '';
+
+function refreshConfigPath() {
+  CONFIG_PATH = path.join(DATA_DIR, 'config.yaml');
+}
+
+const AUDIO_EXT = new Set(['.wav', '.flac', '.aiff', '.aif', '.aifc', '.m4a', '.mp3', '.ogg', '.opus', '.aac']);
+const AIFF_EXT = new Set(['.aiff', '.aif', '.aifc']);
+const LRC_EXT = new Set(['.lrc']);
+const VIDEO_EXT = new Set(['.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi']);
+const VIDEO_TRANSCODE_EXT = new Set(['.mov', '.mkv', '.avi']);
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp']);
 
 const ASSET_DIR_NAMES = new Set([
@@ -27,12 +55,28 @@ const DEFAULT_SETTINGS = {
   fontFamily: 'Noto Sans TC, Microsoft JhengHei, sans-serif',
   enablePV: true,
   playMode: 'song-random',
+<<<<<<< HEAD
   bgMode: 'cover'
+=======
+  bgMode: 'cover',
+  ffmpegPath: '',
+  transcodeGpuMode: 'auto',
+  playbackGpu: true
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 };
 
 let mainWindow = null;
 let playerWindow = null;
 
+<<<<<<< HEAD
+=======
+// Chromium playback already uses platform GPU paths where possible.
+// These switches make Electron less conservative on GPU acceleration.
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 function normalizeRel(p) {
   return String(p || '').replaceAll('\\', '/').replace(/^\/+/, '');
 }
@@ -65,6 +109,7 @@ async function exists(p) {
   }
 }
 
+<<<<<<< HEAD
 async function ensureDataDirs() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.mkdir(path.join(DATA_DIR, 'bg-image'), { recursive: true });
@@ -80,6 +125,108 @@ async function ensureDataDirs() {
       tracks: [],
       backgrounds: []
     }), 'utf8');
+=======
+
+async function initDataRoot() {
+  LOCAL_STATE_PATH = path.join(app.getPath('userData'), 'mmcc.local.json');
+
+  let saved = '';
+  try {
+    const raw = JSON.parse(await fs.readFile(LOCAL_STATE_PATH, 'utf8'));
+    saved = String(raw?.dataDir || '').trim();
+  } catch {}
+
+  DATA_DIR = path.resolve(process.env.MMCC_DATA_DIR || saved || ROOT_FALLBACK_DATA_DIR);
+  refreshConfigPath();
+}
+
+async function saveLocalDataRoot(dataDir) {
+  LOCAL_STATE_PATH ||= path.join(app.getPath('userData'), 'mmcc.local.json');
+  await fs.mkdir(path.dirname(LOCAL_STATE_PATH), { recursive: true });
+  await fs.writeFile(LOCAL_STATE_PATH, JSON.stringify({ dataDir }, null, 2), 'utf8');
+}
+
+async function useDataRoot(dataDir, persist = true) {
+  const next = path.resolve(String(dataDir || '').trim());
+  if (!next) throw new Error('DATA 路徑不能為空');
+
+  DATA_DIR = next;
+  refreshConfigPath();
+  dataRootFallbackNotice = '';
+  await ensureDataDirs(false);
+
+  if (persist) await saveLocalDataRoot(DATA_DIR);
+  return getDataRootInfo();
+}
+
+async function resetDataRoot() {
+  DATA_DIR = ROOT_FALLBACK_DATA_DIR;
+  refreshConfigPath();
+  dataRootFallbackNotice = '';
+  await ensureDataDirs(false);
+  await saveLocalDataRoot(DATA_DIR);
+  return getDataRootInfo();
+}
+
+function getDataRootInfo() {
+  return {
+    dataDir: DATA_DIR,
+    dataRoot: DATA_DIR,
+    configPath: CONFIG_PATH,
+    defaultDataDir: ROOT_FALLBACK_DATA_DIR,
+    fallbackNotice: dataRootFallbackNotice
+  };
+}
+
+async function chooseDataRoot() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '選擇 MMCC DATA 位置',
+    defaultPath: DATA_DIR,
+    properties: ['openDirectory', 'createDirectory']
+  });
+
+  if (result.canceled || !result.filePaths[0]) return { ok: false, canceled: true };
+
+  try {
+    const info = await useDataRoot(result.filePaths[0], true);
+    return { ok: true, ...info };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+async function ensureDataDirs(allowFallback = true) {
+  async function createAtCurrentRoot() {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.mkdir(path.join(DATA_DIR, 'bg-image'), { recursive: true });
+    await fs.mkdir(path.join(DATA_DIR, 'music', 'data'), { recursive: true });
+    await fs.mkdir(path.join(DATA_DIR, 'music', 'lyrics'), { recursive: true });
+    await fs.mkdir(path.join(DATA_DIR, 'video'), { recursive: true });
+
+    if (!(await exists(CONFIG_PATH))) {
+      await fs.writeFile(CONFIG_PATH, YAML.stringify({
+        version: 2,
+        settings: DEFAULT_SETTINGS,
+        albums: [],
+        tracks: [],
+        backgrounds: []
+      }), 'utf8');
+    }
+  }
+
+  try {
+    await createAtCurrentRoot();
+  } catch (error) {
+    const wasDefault = path.resolve(DATA_DIR) === path.resolve(ROOT_FALLBACK_DATA_DIR);
+    if (!allowFallback || !wasDefault) throw error;
+
+    const fallback = path.join(os.homedir(), 'MMCCDB', 'DATA');
+    dataRootFallbackNotice = `預設 DATA 路徑 ${ROOT_FALLBACK_DATA_DIR} 無法寫入，已暫時改用 ${fallback}。可在播放設定裡重新選擇路徑。原始錯誤：${error.message}`;
+    DATA_DIR = fallback;
+    refreshConfigPath();
+    await createAtCurrentRoot();
+    await saveLocalDataRoot(DATA_DIR).catch(() => {});
+>>>>>>> 45d1d53 (Release v0.4.2.1)
   }
 }
 
@@ -94,6 +241,198 @@ async function hashFile(filePath) {
   });
 }
 
+<<<<<<< HEAD
+=======
+
+function getFfmpegCommand(config = {}) {
+  const configured = String(config?.settings?.ffmpegPath || '').trim();
+  return configured || process.env.FFMPEG_PATH || 'ffmpeg';
+}
+
+async function runFfmpeg(config, args) {
+  const command = getFfmpegCommand(config);
+
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command, args, { windowsHide: true });
+    let stderr = '';
+
+    child.stderr.on('data', chunk => {
+      stderr += chunk.toString();
+      if (stderr.length > 8000) stderr = stderr.slice(-8000);
+    });
+
+    child.on('error', error => {
+      if (error.code === 'ENOENT') {
+        reject(new Error(`找不到 FFmpeg：${command}。請先安裝 FFmpeg，或在播放設定裡填入 ffmpeg 執行檔路徑。`));
+        return;
+      }
+      reject(error);
+    });
+
+    child.on('close', code => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`FFmpeg 轉換失敗，退出碼 ${code}。${stderr.split('\n').slice(-8).join('\n')}`));
+      }
+    });
+  });
+}
+
+
+async function runFfmpegCapture(config, args) {
+  const command = getFfmpegCommand(config);
+
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command, args, { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+
+    child.on('error', error => reject(error));
+    child.on('close', code => {
+      if (code === 0) resolve(stdout + '\n' + stderr);
+      else reject(new Error(stderr || `FFmpeg exited with code ${code}`));
+    });
+  });
+}
+
+const encoderCache = new Map();
+
+async function getFfmpegEncoders(config) {
+  const command = getFfmpegCommand(config);
+  if (encoderCache.has(command)) return encoderCache.get(command);
+
+  let output = '';
+  try {
+    output = await runFfmpegCapture(config, ['-hide_banner', '-encoders']);
+  } catch {
+    output = '';
+  }
+
+  encoderCache.set(command, output);
+  return output;
+}
+
+async function hasEncoder(config, encoder) {
+  const encoders = await getFfmpegEncoders(config);
+  return new RegExp(`\\b${encoder}\\b`).test(encoders);
+}
+
+async function resolveVideoEncoder(config) {
+  const mode = String(config?.settings?.transcodeGpuMode || 'auto');
+
+  if (mode === 'off' || mode === 'software') return 'software';
+  if (mode === 'videotoolbox') return await hasEncoder(config, 'h264_videotoolbox') ? 'videotoolbox' : 'software';
+  if (mode === 'nvenc') return await hasEncoder(config, 'h264_nvenc') ? 'nvenc' : 'software';
+  if (mode === 'qsv') return await hasEncoder(config, 'h264_qsv') ? 'qsv' : 'software';
+  if (mode === 'amf') return await hasEncoder(config, 'h264_amf') ? 'amf' : 'software';
+
+  if (process.platform === 'darwin' && await hasEncoder(config, 'h264_videotoolbox')) return 'videotoolbox';
+  if (await hasEncoder(config, 'h264_nvenc')) return 'nvenc';
+  if (await hasEncoder(config, 'h264_qsv')) return 'qsv';
+  if (await hasEncoder(config, 'h264_amf')) return 'amf';
+  return 'software';
+}
+
+async function buildVideoTranscodeArgs(filePath, output, config, log) {
+  const encoder = await resolveVideoEncoder(config);
+  const commonBeforeOutput = ['-map_metadata', '0', '-pix_fmt', 'yuv420p'];
+  const audioArgs = ['-c:a', 'aac', '-b:a', '192k'];
+  const finish = ['-movflags', '+faststart', output];
+
+  if (encoder === 'videotoolbox') {
+    log?.warnings?.push('GPU 轉碼：使用 macOS VideoToolbox。MPS / OctaneRender / Radeon ProRender 不是 FFmpeg H.264 轉碼器，不能直接用於本流程。');
+    return ['-y', '-hwaccel', 'videotoolbox', '-i', filePath, ...commonBeforeOutput, '-c:v', 'h264_videotoolbox', '-b:v', '12000k', ...audioArgs, ...finish];
+  }
+
+  if (encoder === 'nvenc') {
+    log?.warnings?.push('GPU 轉碼：使用 NVIDIA NVENC / CUDA。');
+    return ['-y', '-hwaccel', 'cuda', '-i', filePath, ...commonBeforeOutput, '-c:v', 'h264_nvenc', '-preset', 'p5', '-cq', '19', '-b:v', '0', ...audioArgs, ...finish];
+  }
+
+  if (encoder === 'qsv') {
+    log?.warnings?.push('GPU 轉碼：使用 Intel Quick Sync / QSV。');
+    return ['-y', '-hwaccel', 'qsv', '-i', filePath, ...commonBeforeOutput, '-c:v', 'h264_qsv', '-global_quality', '18', ...audioArgs, ...finish];
+  }
+
+  if (encoder === 'amf') {
+    log?.warnings?.push('GPU 轉碼：使用 AMD AMF。Radeon ProRender 是渲染器，不是本流程的影片轉碼器。');
+    return ['-y', '-i', filePath, ...commonBeforeOutput, '-c:v', 'h264_amf', '-quality', 'quality', '-qp_i', '18', '-qp_p', '18', ...audioArgs, ...finish];
+  }
+
+  if (String(config?.settings?.transcodeGpuMode || 'auto') !== 'off') {
+    log?.warnings?.push('未偵測到可用 GPU H.264 編碼器，改用 libx264 軟體轉碼。');
+  }
+
+  return ['-y', '-i', filePath, ...commonBeforeOutput, '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', ...audioArgs, ...finish];
+}
+
+async function transcodeAsset(filePath, targetSubdir, outputExt, config, log, label, buildArgs) {
+  const sourceHash = await hashFile(filePath);
+  const targetDir = path.join(DATA_DIR, targetSubdir);
+  await fs.mkdir(targetDir, { recursive: true });
+
+  const sourceName = safeFilename(path.basename(filePath, path.extname(filePath)));
+  const dest = path.join(targetDir, `${sourceName}-${sourceHash.slice(0, 8)}${outputExt}`);
+
+  if (await exists(dest)) {
+    return {
+      rel: normalizeRel(path.relative(DATA_DIR, dest)),
+      hash: sourceHash,
+      copied: false,
+      duplicateFile: true,
+      transcoded: true,
+      filename: path.basename(dest)
+    };
+  }
+
+  const temp = `${dest}.tmp-${process.pid}${outputExt}`;
+
+  try {
+    await runFfmpeg(config, await buildArgs(temp));
+    await fs.rename(temp, dest);
+  } catch (error) {
+    await fs.rm(temp, { force: true }).catch(() => {});
+    throw error;
+  }
+
+  log?.warnings?.push(`${label} 已轉換為可播放格式：${path.basename(filePath)} → ${path.basename(dest)}`);
+
+  return {
+    rel: normalizeRel(path.relative(DATA_DIR, dest)),
+    hash: sourceHash,
+    copied: true,
+    duplicateFile: false,
+    transcoded: true,
+    filename: path.basename(dest)
+  };
+}
+
+async function storePlayableAsset(filePath, targetSubdir, assetType, config, log, label) {
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (assetType === 'audio' && AIFF_EXT.has(ext)) {
+    return transcodeAsset(filePath, targetSubdir, '.wav', config, log, label || '音訊', output => [
+      '-y',
+      '-i', filePath,
+      '-vn',
+      '-map_metadata', '0',
+      '-c:a', 'pcm_s16le',
+      output
+    ]);
+  }
+
+  if (assetType === 'video' && VIDEO_TRANSCODE_EXT.has(ext)) {
+    return transcodeAsset(filePath, targetSubdir, '.mp4', config, log, label || 'PV', output => buildVideoTranscodeArgs(filePath, output, config, log));
+  }
+
+  return copyAsset(filePath, targetSubdir);
+}
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 function normalizeAlbum(album) {
   const title = String(album?.title || album?.name || album?.albumTitle || 'Single').trim() || 'Single';
   const id = String(album?.id || makeId('album', title)).trim();
@@ -415,7 +754,11 @@ function choosePreferred(list, type, log, groupLabel) {
   if (!list.length) return null;
 
   const priority = type === 'audio'
+<<<<<<< HEAD
     ? ['.wav', '.flac', '.aiff', '.aif', '.m4a', '.mp3', '.ogg', '.opus', '.aac']
+=======
+    ? ['.wav', '.flac', '.aiff', '.aif', '.aifc', '.m4a', '.mp3', '.ogg', '.opus', '.aac']
+>>>>>>> 45d1d53 (Release v0.4.2.1)
     : type === 'video'
       ? ['.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi']
       : ['.lrc'];
@@ -440,7 +783,17 @@ async function attachOptionalAsset(track, kind, candidate, log) {
     ? { subdir: path.join('music', 'lyrics'), pathKey: 'lyricpath', hashKey: 'lyric', sourceKey: 'lyric', label: 'LRC' }
     : { subdir: 'video', pathKey: 'videopath', hashKey: 'video', sourceKey: 'video', label: 'PV' };
 
+<<<<<<< HEAD
   const copied = await copyAsset(candidate.filePath, spec.subdir);
+=======
+  let copied;
+  try {
+    copied = await storePlayableAsset(candidate.filePath, spec.subdir, kind === 'video' ? 'video' : 'lyric', await loadConfig(), log, spec.label);
+  } catch (error) {
+    log.warnings.push(`${track.title}：${spec.label} 轉換/入庫失敗：${error.message}`);
+    return false;
+  }
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 
   track.hashes ||= {};
   track.sourceFiles ||= {};
@@ -536,8 +889,17 @@ async function importAssets(inputPaths) {
       } else {
         if (group.video.length) {
           for (const pvCandidate of group.video) {
+<<<<<<< HEAD
             const copiedPv = await copyAsset(pvCandidate.filePath, 'video');
             log.updatedTracks.push(`${groupLabel}：已作為獨立 PV 入庫，稍後可在「綁定管理」綁定歌曲：${copiedPv.filename}`);
+=======
+            try {
+              const copiedPv = await storePlayableAsset(pvCandidate.filePath, 'video', 'video', config, log, 'PV');
+              log.updatedTracks.push(`${groupLabel}：已作為獨立 PV 入庫，稍後可在「綁定管理」綁定歌曲：${copiedPv.filename}`);
+            } catch (error) {
+              log.warnings.push(`${groupLabel}：PV 轉換/入庫失敗：${error.message}`);
+            }
+>>>>>>> 45d1d53 (Release v0.4.2.1)
           }
         }
 
@@ -552,7 +914,17 @@ async function importAssets(inputPaths) {
       continue;
     }
 
+<<<<<<< HEAD
     const copiedAudio = await copyAsset(audio.filePath, path.join('music', 'data'));
+=======
+    let copiedAudio;
+    try {
+      copiedAudio = await storePlayableAsset(audio.filePath, path.join('music', 'data'), 'audio', config, log, '音訊');
+    } catch (error) {
+      log.warnings.push(`${groupLabel}：音訊轉換/入庫失敗：${error.message}`);
+      continue;
+    }
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 
     if (existingTrack) {
       existingTrack.hashes ||= {};
@@ -649,10 +1021,19 @@ async function getLibrary() {
 
   return {
     dataDir: DATA_DIR,
+<<<<<<< HEAD
+=======
+    dataRoot: DATA_DIR,
+>>>>>>> 45d1d53 (Release v0.4.2.1)
     config,
     albums: config.albums,
     tracks,
     videos: await listVideoLibrary(config),
+<<<<<<< HEAD
+=======
+    lyrics: await listLyricLibrary(config),
+    dataFiles: await listDataFiles(config),
+>>>>>>> 45d1d53 (Release v0.4.2.1)
     bgImages: config.backgrounds.map(bg => bg.path)
   };
 }
@@ -708,8 +1089,163 @@ async function listVideoLibrary(configInput = null) {
   return videos.sort((a, b) => a.filename.localeCompare(b.filename, 'zh-Hant'));
 }
 
+<<<<<<< HEAD
 async function importPvLibrary(inputPaths) {
   await ensureDataDirs();
+=======
+
+async function listLyricLibrary(configInput = null) {
+  const config = configInput || await loadConfig();
+  const lyricDir = path.join(DATA_DIR, 'music', 'lyrics');
+
+  if (!(await exists(lyricDir))) return [];
+
+  const all = await listFilesDeep(lyricDir).catch(() => []);
+  const usedByPath = new Map();
+
+  for (const track of config.tracks || []) {
+    const rel = normalizeRel(track.lyricpath || '');
+    if (!rel) continue;
+    if (!usedByPath.has(rel)) usedByPath.set(rel, []);
+    usedByPath.get(rel).push({ id: track.id, title: track.title, albumId: track.albumId, albumTitle: track.albumTitle });
+  }
+
+  const lyrics = [];
+
+  for (const filePath of all) {
+    if (!LRC_EXT.has(path.extname(filePath).toLowerCase())) continue;
+
+    const rel = normalizeRel(path.relative(DATA_DIR, filePath));
+    let hash = '';
+    try {
+      hash = await hashFile(filePath);
+    } catch {}
+
+    lyrics.push({
+      path: rel,
+      filename: path.basename(filePath),
+      stem: path.basename(filePath, path.extname(filePath)),
+      hash,
+      usedBy: usedByPath.get(rel) || []
+    });
+  }
+
+  return lyrics.sort((a, b) => a.filename.localeCompare(b.filename, 'zh-Hant'));
+}
+
+function fileCategory(relPath) {
+  const rel = normalizeRel(relPath);
+  const ext = path.extname(rel).toLowerCase();
+
+  if (rel.startsWith('music/data/')) return 'song';
+  if (rel.startsWith('music/lyrics/')) return 'lrc';
+  if (rel.startsWith('video/')) return 'pv';
+  if (rel.startsWith('bg-image/')) return 'bg';
+  if (AUDIO_EXT.has(ext)) return 'song';
+  if (LRC_EXT.has(ext)) return 'lrc';
+  if (VIDEO_EXT.has(ext)) return 'pv';
+  if (IMAGE_EXT.has(ext)) return 'bg';
+  return 'other';
+}
+
+function addUsage(map, relPath, usage) {
+  const rel = normalizeRel(relPath);
+  if (!rel) return;
+  if (!map.has(rel)) map.set(rel, []);
+  map.get(rel).push(usage);
+}
+
+function buildUsageMap(config) {
+  const map = new Map();
+
+  for (const track of config.tracks || []) {
+    addUsage(map, track.musicpath, { type: 'song', id: track.id, title: track.title, albumId: track.albumId });
+    addUsage(map, track.lyricpath, { type: 'lrc', id: track.id, title: track.title, albumId: track.albumId });
+    addUsage(map, track.videopath, { type: 'pv', id: track.id, title: track.title, albumId: track.albumId });
+  }
+
+  for (const bg of config.backgrounds || []) {
+    addUsage(map, bg.path, { type: 'bg', title: path.basename(bg.path || '') });
+  }
+
+  return map;
+}
+
+async function listDataFiles(configInput = null) {
+  const config = configInput || await loadConfig();
+  await ensureDataDirs();
+
+  const files = await listFilesDeep(DATA_DIR).catch(() => []);
+  const usageMap = buildUsageMap(config);
+  const out = [];
+
+  for (const filePath of files) {
+    const rel = normalizeRel(path.relative(DATA_DIR, filePath));
+    if (!rel || rel === 'config.yaml') continue;
+
+    const stat = await fs.stat(filePath).catch(() => null);
+    out.push({
+      path: rel,
+      filename: path.basename(filePath),
+      category: fileCategory(rel),
+      size: stat ? stat.size : 0,
+      mtime: stat ? stat.mtime.toISOString() : '',
+      usedBy: usageMap.get(rel) || []
+    });
+  }
+
+  return out.sort((a, b) => a.path.localeCompare(b.path, 'zh-Hant'));
+}
+
+async function importLrcLibrary(inputPaths) {
+  await ensureDataDirs();
+
+  const { files, skipped } = await collectInputFiles(inputPaths || []);
+  const log = {
+    added: [],
+    skipped: [...skipped],
+    warnings: []
+  };
+
+  for (const item of files) {
+    if (classify(item.filePath) !== 'lrc') {
+      log.skipped.push(`非 LRC 檔案，略過：${path.basename(item.filePath)}`);
+      continue;
+    }
+
+    try {
+      const copied = await copyAsset(item.filePath, path.join('music', 'lyrics'));
+      if (copied.duplicateFile) {
+        log.skipped.push(`LRC 已存在，略過複製：${copied.filename}`);
+      } else {
+        log.added.push(`新增 LRC：${copied.filename}`);
+      }
+    } catch (error) {
+      log.warnings.push(`LRC 入庫失敗：${path.basename(item.filePath)}：${error.message}`);
+    }
+  }
+
+  return { ok: true, log, lyrics: await listLyricLibrary() };
+}
+
+async function chooseAndImportLrcs() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '選擇要入庫的 LRC 檔案或資料夾',
+    properties: ['openFile', 'openDirectory', 'multiSelections'],
+    filters: [
+      { name: 'LRC lyrics', extensions: ['lrc'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths.length) return { ok: false, canceled: true };
+  return importLrcLibrary(result.filePaths);
+}
+
+async function importPvLibrary(inputPaths) {
+  await ensureDataDirs();
+  const config = await loadConfig();
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 
   const { files, skipped } = await collectInputFiles(inputPaths || []);
   const log = {
@@ -724,7 +1260,18 @@ async function importPvLibrary(inputPaths) {
       continue;
     }
 
+<<<<<<< HEAD
     const copied = await copyAsset(item.filePath, 'video');
+=======
+    let copied;
+    try {
+      copied = await storePlayableAsset(item.filePath, 'video', 'video', config, log, 'PV');
+    } catch (error) {
+      log.warnings.push(`PV 轉換/入庫失敗：${path.basename(item.filePath)}：${error.message}`);
+      continue;
+    }
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
     if (copied.duplicateFile) {
       log.skipped.push(`PV 已存在，略過複製：${copied.filename}`);
     } else {
@@ -830,6 +1377,111 @@ async function unbindPvFromTrack(trackId) {
   return { ok: true, track };
 }
 
+<<<<<<< HEAD
+=======
+
+async function bindLrcToTrack({ trackId, lyricPath }) {
+  const config = await loadConfig();
+  const track = config.tracks.find(item => item.id === trackId);
+  const rel = normalizeRel(lyricPath || '');
+
+  if (!track) return { ok: false, error: 'Track not found' };
+  if (!rel) return { ok: false, error: '沒有選擇 LRC' };
+
+  const abs = assertInsideDataDir(rel);
+  if (!(await exists(abs))) return { ok: false, error: `LRC 檔案不存在：${rel}` };
+  if (!LRC_EXT.has(path.extname(abs).toLowerCase())) return { ok: false, error: '選擇的檔案不是 LRC' };
+
+  track.lyricpath = rel;
+  track.PureMusic = false;
+  track.hashes ||= {};
+  track.sourceFiles ||= {};
+  track.hashes.lyric = await hashFile(abs).catch(() => '');
+  track.sourceFiles.lyric = path.basename(abs);
+  track.updatedAt = new Date().toISOString();
+
+  await saveConfig(config);
+  return { ok: true, track };
+}
+
+async function unbindLrcFromTrack(trackId) {
+  const config = await loadConfig();
+  const track = config.tracks.find(item => item.id === trackId);
+
+  if (!track) return { ok: false, error: 'Track not found' };
+
+  track.lyricpath = '';
+  track.PureMusic = true;
+  if (track.hashes) delete track.hashes.lyric;
+  if (track.sourceFiles) delete track.sourceFiles.lyric;
+  track.updatedAt = new Date().toISOString();
+
+  await saveConfig(config);
+  return { ok: true, track };
+}
+
+async function autoBindLrcsByName() {
+  const config = await loadConfig();
+  const lyrics = await listLyricLibrary(config);
+  const availableLyrics = lyrics.filter(lyric => lyric.usedBy.length === 0);
+
+  const tracksByTitle = new Map();
+  for (const track of config.tracks) {
+    const key = normalizeKey(track.title);
+    if (!tracksByTitle.has(key)) tracksByTitle.set(key, []);
+    tracksByTitle.get(key).push(track);
+  }
+
+  const lyricsByStem = new Map();
+  for (const lyric of availableLyrics) {
+    const key = normalizeKey(lyric.stem);
+    if (!lyricsByStem.has(key)) lyricsByStem.set(key, []);
+    lyricsByStem.get(key).push(lyric);
+  }
+
+  const log = { bound: [], skipped: [], warnings: [] };
+  let updated = 0;
+
+  for (const [key, tracks] of tracksByTitle.entries()) {
+    const candidates = lyricsByStem.get(key) || [];
+    if (!candidates.length) continue;
+
+    if (tracks.length !== 1) {
+      log.warnings.push(`歌曲名重複，無法自動判斷：${tracks.map(track => track.title).join(', ')}`);
+      continue;
+    }
+
+    if (candidates.length !== 1) {
+      log.warnings.push(`LRC 同名檔超過 1 個，無法自動判斷：${candidates.map(lyric => lyric.filename).join(', ')}`);
+      continue;
+    }
+
+    const track = tracks[0];
+    if (track.lyricpath) {
+      log.skipped.push(`已經有 LRC，略過：${track.title}`);
+      continue;
+    }
+
+    const lyric = candidates[0];
+    const abs = assertInsideDataDir(lyric.path);
+
+    track.lyricpath = lyric.path;
+    track.PureMusic = false;
+    track.hashes ||= {};
+    track.sourceFiles ||= {};
+    track.hashes.lyric = await hashFile(abs).catch(() => lyric.hash || '');
+    track.sourceFiles.lyric = lyric.filename;
+    track.updatedAt = new Date().toISOString();
+    updated++;
+
+    log.bound.push(`${track.title} ⇐ ${lyric.filename}`);
+  }
+
+  await saveConfig(config);
+  return { ok: true, updated, log };
+}
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 async function autoBindPvsByName() {
   const config = await loadConfig();
   const videos = await listVideoLibrary(config);
@@ -1038,6 +1690,184 @@ async function deleteAlbum(albumId) {
   return { ok: true };
 }
 
+<<<<<<< HEAD
+=======
+
+
+function configPathIsReferenced(config, relPath) {
+  const rel = normalizeRel(relPath);
+  if (!rel) return false;
+
+  if ((config.backgrounds || []).some(bg => normalizeRel(bg.path) === rel)) return true;
+
+  return (config.tracks || []).some(track =>
+    normalizeRel(track.musicpath) === rel ||
+    normalizeRel(track.lyricpath) === rel ||
+    normalizeRel(track.videopath) === rel
+  );
+}
+
+async function removePhysicalIfUnreferenced(relPath, config, log) {
+  const rel = normalizeRel(relPath);
+  if (!rel || rel === 'config.yaml') return false;
+
+  if (configPathIsReferenced(config, rel)) {
+    log?.skipped?.push(`${rel} 仍被其他項目引用，未刪除實體檔案`);
+    return false;
+  }
+
+  const abs = assertInsideDataDir(rel);
+  if (!(await exists(abs))) return false;
+
+  await fs.rm(abs, { force: true });
+  log?.deletedFiles?.push(rel);
+  return true;
+}
+
+async function deleteTrack(payload) {
+  const trackId = typeof payload === 'string' ? payload : payload?.trackId;
+  const deleteFiles = typeof payload === 'object' && payload?.deleteFiles === true;
+  const config = await loadConfig();
+  const track = config.tracks.find(item => item.id === trackId);
+
+  if (!track) return { ok: false, error: 'Track not found' };
+
+  const fileRefs = [track.musicpath, track.lyricpath, track.videopath].map(normalizeRel).filter(Boolean);
+  config.tracks = config.tracks.filter(item => item.id !== trackId);
+
+  const log = {
+    removedTracks: [`${track.title} · ${track.albumTitle || ''}`],
+    deletedFiles: [],
+    skipped: [],
+    cleared: []
+  };
+
+  if (deleteFiles) {
+    for (const rel of fileRefs) {
+      await removePhysicalIfUnreferenced(rel, config, log);
+    }
+  }
+
+  await saveConfig(config);
+  return { ok: true, log };
+}
+
+async function deleteDataFile(payload) {
+  const rel = normalizeRel(typeof payload === 'string' ? payload : payload?.path);
+  if (!rel) return { ok: false, error: '沒有指定檔案' };
+  if (rel === 'config.yaml') return { ok: false, error: '不能從這裡刪除 config.yaml' };
+
+  const abs = assertInsideDataDir(rel);
+  if (!(await exists(abs))) return { ok: false, error: `檔案不存在：${rel}` };
+
+  const st = await fs.stat(abs);
+  if (!st.isFile()) return { ok: false, error: '目前只允許刪除檔案，不刪除資料夾' };
+
+  const config = await loadConfig();
+  const log = { removedTracks: [], deletedFiles: [], skipped: [], cleared: [] };
+
+  const beforeTracks = config.tracks.length;
+  const removedTracks = [];
+  config.tracks = config.tracks.filter(track => {
+    if (normalizeRel(track.musicpath) === rel) {
+      removedTracks.push(`${track.title} · ${track.albumTitle || ''}`);
+      return false;
+    }
+    return true;
+  });
+  if (removedTracks.length) log.removedTracks.push(...removedTracks);
+
+  for (const track of config.tracks) {
+    if (normalizeRel(track.lyricpath) === rel) {
+      track.lyricpath = '';
+      track.PureMusic = true;
+      if (track.hashes) delete track.hashes.lyric;
+      if (track.sourceFiles) delete track.sourceFiles.lyric;
+      track.updatedAt = new Date().toISOString();
+      log.cleared.push(`已清除 LRC 綁定：${track.title}`);
+    }
+
+    if (normalizeRel(track.videopath) === rel) {
+      track.videopath = '';
+      if (track.hashes) delete track.hashes.video;
+      if (track.sourceFiles) delete track.sourceFiles.video;
+      track.updatedAt = new Date().toISOString();
+      log.cleared.push(`已清除 PV 綁定：${track.title}`);
+    }
+  }
+
+  const oldBg = config.backgrounds.length;
+  config.backgrounds = config.backgrounds.filter(bg => normalizeRel(bg.path) !== rel);
+  if (config.backgrounds.length !== oldBg) log.cleared.push(`已移除背景圖記錄：${rel}`);
+
+  await fs.rm(abs, { force: true });
+  log.deletedFiles.push(rel);
+
+  await saveConfig(config);
+  return { ok: true, log, removedTrackCount: beforeTracks - config.tracks.length };
+}
+
+async function convertExistingMedia() {
+  const config = await loadConfig();
+  const log = { converted: [], skipped: [], warnings: [] };
+  const now = new Date().toISOString();
+
+  for (const track of config.tracks) {
+    const musicRel = normalizeRel(track.musicpath || '');
+    if (musicRel && AIFF_EXT.has(path.extname(musicRel).toLowerCase())) {
+      try {
+        const musicAbs = assertInsideDataDir(musicRel);
+        const converted = await storePlayableAsset(musicAbs, path.join('music', 'data'), 'audio', config, log, '音訊');
+        track.musicpath = converted.rel;
+        track.hashes ||= {};
+        track.hashes.music = converted.hash;
+        track.sourceFiles ||= {};
+        track.sourceFiles.music = path.basename(converted.rel);
+        track.updatedAt = now;
+        log.converted.push(`${track.title}：AIFF/AIFC → WAV`);
+      } catch (error) {
+        log.warnings.push(`${track.title}：音訊轉換失敗：${error.message}`);
+      }
+    }
+
+    const videoRel = normalizeRel(track.videopath || '');
+    if (videoRel && VIDEO_TRANSCODE_EXT.has(path.extname(videoRel).toLowerCase())) {
+      try {
+        const videoAbs = assertInsideDataDir(videoRel);
+        const converted = await storePlayableAsset(videoAbs, 'video', 'video', config, log, 'PV');
+        track.videopath = converted.rel;
+        track.hashes ||= {};
+        track.hashes.video = converted.hash;
+        track.sourceFiles ||= {};
+        track.sourceFiles.video = path.basename(converted.rel);
+        track.updatedAt = now;
+        log.converted.push(`${track.title}：PV → H.264 MP4`);
+      } catch (error) {
+        log.warnings.push(`${track.title}：PV 轉換失敗：${error.message}`);
+      }
+    }
+  }
+
+  const videoDir = path.join(DATA_DIR, 'video');
+  const videos = (await exists(videoDir)) ? await listFilesDeep(videoDir).catch(() => []) : [];
+  for (const filePath of videos) {
+    if (!VIDEO_TRANSCODE_EXT.has(path.extname(filePath).toLowerCase())) continue;
+    const rel = normalizeRel(path.relative(DATA_DIR, filePath));
+    if (config.tracks.some(track => normalizeRel(track.videopath || '') === rel)) continue;
+
+    try {
+      const converted = await storePlayableAsset(filePath, 'video', 'video', config, log, 'PV');
+      log.converted.push(`獨立 PV：${path.basename(filePath)} → ${converted.filename}`);
+    } catch (error) {
+      log.warnings.push(`獨立 PV 轉換失敗：${path.basename(filePath)}：${error.message}`);
+    }
+  }
+
+  await saveConfig(config);
+  return { ok: true, log };
+}
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 async function saveSettings(settings) {
   const config = await loadConfig();
 
@@ -1047,7 +1877,14 @@ async function saveSettings(settings) {
     fontFamily: settings?.fontFamily || DEFAULT_SETTINGS.fontFamily,
     enablePV: settings?.enablePV !== false,
     playMode: settings?.playMode || 'song-random',
+<<<<<<< HEAD
     bgMode: settings?.bgMode || 'cover'
+=======
+    bgMode: settings?.bgMode || 'cover',
+    ffmpegPath: String(settings?.ffmpegPath || '').trim(),
+    transcodeGpuMode: String(settings?.transcodeGpuMode || 'auto'),
+    playbackGpu: settings?.playbackGpu !== false
+>>>>>>> 45d1d53 (Release v0.4.2.1)
   };
 
   await saveConfig(config);
@@ -1092,6 +1929,10 @@ function openPlayerWindow() {
 }
 
 app.whenReady().then(async () => {
+<<<<<<< HEAD
+=======
+  await initDataRoot();
+>>>>>>> 45d1d53 (Release v0.4.2.1)
   await ensureDataDirs();
   createMainWindow();
 });
@@ -1130,6 +1971,27 @@ ipcMain.handle('album:updateMany', (_event, patches) => updateAlbums(patches));
 ipcMain.handle('album:delete', (_event, albumId) => deleteAlbum(albumId));
 
 ipcMain.handle('data:exportZip', exportDataZip);
+<<<<<<< HEAD
+=======
+ipcMain.handle('data:getRoot', async () => ({ ok: true, ...getDataRootInfo() }));
+ipcMain.handle('data:chooseRoot', chooseDataRoot);
+ipcMain.handle('data:setRoot', async (_event, dataDir) => {
+  try {
+    const info = await useDataRoot(dataDir, true);
+    return { ok: true, ...info };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+ipcMain.handle('data:resetRoot', async () => {
+  try {
+    const info = await resetDataRoot();
+    return { ok: true, ...info };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 
 ipcMain.handle('player:launch', () => {
   openPlayerWindow();
@@ -1143,7 +2005,25 @@ ipcMain.handle('pvs:list', async () => ({ ok: true, videos: await listVideoLibra
 ipcMain.handle('pvs:import', async (_event, paths) => importPvLibrary(paths));
 ipcMain.handle('pvs:chooseAndImport', chooseAndImportPvs);
 ipcMain.handle('pvs:autoBind', autoBindPvsByName);
+<<<<<<< HEAD
+=======
+ipcMain.handle('media:convertExisting', convertExistingMedia);
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 
 ipcMain.handle('track:bindAlbum', (_event, payload) => bindTracksToAlbum(payload));
 ipcMain.handle('track:bindPv', (_event, payload) => bindPvToTrack(payload));
 ipcMain.handle('track:unbindPv', (_event, trackId) => unbindPvFromTrack(trackId));
+<<<<<<< HEAD
+=======
+ipcMain.handle('lrcs:list', async () => ({ ok: true, lyrics: await listLyricLibrary() }));
+ipcMain.handle('lrcs:import', async (_event, paths) => importLrcLibrary(paths));
+ipcMain.handle('lrcs:chooseAndImport', chooseAndImportLrcs);
+ipcMain.handle('lrcs:autoBind', autoBindLrcsByName);
+
+ipcMain.handle('track:bindLrc', (_event, payload) => bindLrcToTrack(payload));
+ipcMain.handle('track:unbindLrc', (_event, trackId) => unbindLrcFromTrack(trackId));
+ipcMain.handle('track:delete', (_event, payload) => deleteTrack(payload));
+ipcMain.handle('data:listFiles', async () => ({ ok: true, files: await listDataFiles() }));
+ipcMain.handle('data:deleteFile', (_event, payload) => deleteDataFile(payload));
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)

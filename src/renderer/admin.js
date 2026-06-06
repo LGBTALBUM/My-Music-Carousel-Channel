@@ -66,12 +66,45 @@ function getAlbumTitle(albumId) {
   return (library?.albums || []).find(album => album.id === albumId)?.title || '未分類';
 }
 
+<<<<<<< HEAD
+=======
+
+function formatMediaConvertResult(result) {
+  if (!result) return '';
+  if (!result.ok) return `轉換失敗：${result.error || 'unknown error'}`;
+
+  const log = result.log || {};
+  const lines = [];
+  if (log.converted?.length) {
+    lines.push('[已轉換]');
+    lines.push(...log.converted.map(item => `- ${item}`));
+  }
+  if (log.skipped?.length) {
+    lines.push('\n[略過]');
+    lines.push(...log.skipped.map(item => `- ${item}`));
+  }
+  if (log.warnings?.length) {
+    lines.push('\n[警告]');
+    lines.push(...log.warnings.map(item => `- ${item}`));
+  }
+
+  return lines.length ? lines.join('\n') : '沒有需要轉換的既有媒體。';
+}
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 function currentSettingsFromForm() {
   return {
     fontFamily: $('#fontFamily').value.trim(),
     enablePV: $('#enablePV').checked,
     playMode: $('#playMode').value,
+<<<<<<< HEAD
     bgMode: $('#bgMode').value
+=======
+    bgMode: $('#bgMode').value,
+    ffmpegPath: $('#ffmpegPath')?.value.trim() || '',
+    transcodeGpuMode: $('#transcodeGpuMode')?.value || 'auto',
+    playbackGpu: $('#playbackGpu') ? $('#playbackGpu').checked : true
+>>>>>>> 45d1d53 (Release v0.4.2.1)
   };
 }
 
@@ -81,6 +114,25 @@ function fillSettingsForm() {
   $('#enablePV').checked = settings.enablePV !== false;
   $('#playMode').value = settings.playMode || 'song-random';
   $('#bgMode').value = settings.bgMode || 'cover';
+<<<<<<< HEAD
+=======
+  if ($('#ffmpegPath')) $('#ffmpegPath').value = settings.ffmpegPath || '';
+  if ($('#transcodeGpuMode')) $('#transcodeGpuMode').value = settings.transcodeGpuMode || 'auto';
+  if ($('#playbackGpu')) $('#playbackGpu').checked = settings.playbackGpu !== false;
+  fillDataRootForm();
+}
+
+function fillDataRootForm() {
+  const dataRoot = library?.dataRoot || {};
+  if ($('#dataRootPath')) $('#dataRootPath').value = dataRoot.dataDir || library?.dataDir || '';
+  if ($('#dataRootLog')) {
+    const lines = [];
+    if (dataRoot.dataDir) lines.push(`目前 DATA：${dataRoot.dataDir}`);
+    if (dataRoot.defaultDataDir) lines.push(`預設 DATA：${dataRoot.defaultDataDir}`);
+    if (dataRoot.fallbackNotice) lines.push(dataRoot.fallbackNotice);
+    $('#dataRootLog').textContent = lines.join('\n');
+  }
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 }
 
 function renderStats() {
@@ -88,10 +140,18 @@ function renderStats() {
   const tracks = library?.tracks?.length || 0;
   const bg = library?.bgImages?.length || 0;
   const videos = library?.videos?.length || 0;
+<<<<<<< HEAD
+=======
+  const lyrics = library?.lyrics?.length || 0;
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 
   $('#libraryStats').innerHTML = `
     <div><strong>${tracks}</strong><span>作品</span></div>
     <div><strong>${albums}</strong><span>專輯</span></div>
+<<<<<<< HEAD
+=======
+    <div><strong>${lyrics}</strong><span>LRC</span></div>
+>>>>>>> 45d1d53 (Release v0.4.2.1)
     <div><strong>${videos}</strong><span>PV</span></div>
     <div><strong>${bg}</strong><span>背景圖</span></div>
   `;
@@ -218,7 +278,11 @@ function renderBindTrackTable() {
   tbody.innerHTML = '';
 
   if (!tracks.length) {
+<<<<<<< HEAD
     tbody.innerHTML = '<tr><td colspan="5" class="muted">沒有可顯示的歌曲。</td></tr>';
+=======
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">沒有可顯示的歌曲。</td></tr>'; 
+>>>>>>> 45d1d53 (Release v0.4.2.1)
     return;
   }
 
@@ -229,6 +293,10 @@ function renderBindTrackTable() {
       <td><strong>${escapeHtml(track.title)}</strong></td>
       <td>${escapeHtml(getAlbumTitle(track.albumId))}</td>
       <td class="path-cell">${escapeHtml(track.musicpath || '')}</td>
+<<<<<<< HEAD
+=======
+      <td>${track.lyricpath ? `<span class="pill ok">${escapeHtml(track.lyricpath.split('/').pop())}</span>` : '<span class="pill">未綁定</span>'}</td>
+>>>>>>> 45d1d53 (Release v0.4.2.1)
       <td>${track.videopath ? `<span class="pill ok">${escapeHtml(track.videopath.split('/').pop())}</span>` : '<span class="pill">未綁定</span>'}</td>
     `;
     tbody.appendChild(tr);
@@ -275,9 +343,163 @@ function renderPvTable() {
   }
 }
 
+<<<<<<< HEAD
 function renderBinding() {
   renderBindControls();
   renderBindTrackTable();
+=======
+
+function renderLrcSelectors() {
+  const trackSelect = $('#lrcTrackSelect');
+  const lrcSelect = $('#lrcFileSelect');
+  if (!trackSelect || !lrcSelect) return;
+
+  const oldTrack = trackSelect.value;
+  const oldLrc = lrcSelect.value;
+
+  trackSelect.innerHTML = (library?.tracks || []).map(track => `
+    <option value="${escapeHtml(track.id)}">${escapeHtml(track.title)} · ${escapeHtml(getAlbumTitle(track.albumId))}${track.lyricpath ? ' · 已有LRC' : ''}</option>
+  `).join('');
+
+  lrcSelect.innerHTML = (library?.lyrics || []).map(lyric => `
+    <option value="${escapeHtml(lyric.path)}">${escapeHtml(lyric.filename)}${lyric.usedBy?.length ? ' · 已綁定' : ''}</option>
+  `).join('');
+
+  if ([...trackSelect.options].some(opt => opt.value === oldTrack)) trackSelect.value = oldTrack;
+  if ([...lrcSelect.options].some(opt => opt.value === oldLrc)) lrcSelect.value = oldLrc;
+}
+
+function renderLrcTable() {
+  const tbody = $('#lrcTable tbody');
+  if (!tbody) return;
+
+  const lyrics = library?.lyrics || [];
+  tbody.innerHTML = '';
+
+  if (!lyrics.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="muted">LRC 池目前是空的。請先入庫 LRC。</td></tr>';
+    return;
+  }
+
+  for (const lyric of lyrics) {
+    const used = lyric.usedBy || [];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="path-cell"><strong>${escapeHtml(lyric.filename)}</strong><br>${escapeHtml(lyric.path)}</td>
+      <td>${used.length ? '<span class="pill ok">已綁定</span>' : '<span class="pill warn">未綁定</span>'}</td>
+      <td>${used.length ? used.map(item => `${escapeHtml(item.title)} · ${escapeHtml(getAlbumTitle(item.albumId))}`).join('<br>') : '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes || 0);
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function formatDeleteLog(result) {
+  if (!result) return '';
+  if (!result.ok) return `刪除失敗：${result.error || 'unknown error'}`;
+  const log = result.log || {};
+  const lines = [];
+  for (const [title, items] of [
+    ['移除歌曲', log.removedTracks],
+    ['刪除檔案', log.deletedFiles],
+    ['清理引用', log.cleared],
+    ['略過', log.skipped]
+  ]) {
+    if (!items || !items.length) continue;
+    lines.push(`[${title}]`);
+    lines.push(...items.map(item => `- ${item}`));
+  }
+  return lines.join('\n') || '完成。';
+}
+
+function categoryLabel(category) {
+  return {
+    song: '歌曲',
+    lrc: 'LRC',
+    pv: 'PV',
+    bg: 'BG',
+    other: '其他'
+  }[category] || category;
+}
+
+function renderDeleteTrackTable() {
+  const tbody = $('#deleteTrackTable tbody');
+  if (!tbody) return;
+
+  const tracks = library?.tracks || [];
+  tbody.innerHTML = '';
+
+  if (!tracks.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">目前沒有歌曲。</td></tr>';
+    return;
+  }
+
+  for (const track of tracks) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(track.title)}</strong></td>
+      <td>${escapeHtml(getAlbumTitle(track.albumId))}</td>
+      <td class="path-cell">${escapeHtml(track.musicpath || '')}</td>
+      <td class="path-cell">${track.lyricpath ? escapeHtml(track.lyricpath) : '—'}</td>
+      <td class="path-cell">${track.videopath ? escapeHtml(track.videopath) : '—'}</td>
+      <td>
+        <button class="small delete-track-record-btn" data-track-id="${escapeHtml(track.id)}">只刪記錄</button>
+        <button class="small danger delete-track-files-btn" data-track-id="${escapeHtml(track.id)}">刪記錄+檔案</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderDataFileTable() {
+  const tbody = $('#dataFileTable tbody');
+  if (!tbody) return;
+
+  const filter = $('#deleteFileFilter')?.value || '__all__';
+  const files = (library?.dataFiles || []).filter(file => filter === '__all__' || file.category === filter);
+  tbody.innerHTML = '';
+
+  if (!files.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted">沒有可顯示的 data 檔案。</td></tr>';
+    return;
+  }
+
+  for (const file of files) {
+    const used = file.usedBy || [];
+    const usage = used.length
+      ? used.map(item => `${escapeHtml(item.type)} · ${escapeHtml(item.title || item.id || '')}`).join('<br>')
+      : '<span class="muted">未引用</span>';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="pill">${escapeHtml(categoryLabel(file.category))}</span></td>
+      <td class="path-cell"><strong>${escapeHtml(file.filename)}</strong><br>${escapeHtml(file.path)}</td>
+      <td>${escapeHtml(formatBytes(file.size))}</td>
+      <td>${usage}</td>
+      <td><button class="small danger delete-data-file-btn" data-path="${escapeHtml(file.path)}">刪除檔案</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderDeleteManager() {
+  renderDeleteTrackTable();
+  renderDataFileTable();
+}
+
+function renderBinding() {
+  renderBindControls();
+  renderBindTrackTable();
+  renderLrcSelectors();
+  renderLrcTable();
+>>>>>>> 45d1d53 (Release v0.4.2.1)
   renderPvSelectors();
   renderPvTable();
 }
@@ -291,6 +513,10 @@ async function loadLibrary(preferredAlbumId = '') {
   renderStats();
   renderAlbums();
   renderBinding();
+<<<<<<< HEAD
+=======
+  renderDeleteManager();
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 }
 
 async function runImport(paths) {
@@ -466,6 +692,48 @@ function bindBindingManager() {
     }
   });
 
+<<<<<<< HEAD
+=======
+  $('#chooseLrcsBtn').addEventListener('click', async () => {
+    $('#bindLrcLog').textContent = 'LRC 入庫中，請稍候...';
+    const result = await window.mmcc.chooseAndImportLrcs();
+    $('#bindLrcLog').textContent = formatImportResult(result);
+    await loadLibrary(selectedAlbumId);
+  });
+
+  $('#autoBindLrcBtn').addEventListener('click', async () => {
+    $('#bindLrcLog').textContent = '正在按同名自動綁定 LRC...';
+    const result = await window.mmcc.autoBindLrcs();
+    $('#bindLrcLog').textContent = result.ok
+      ? `自動綁定完成：${result.updated} 個。\n${formatGenericLog(result.log)}`
+      : `自動綁定失敗：${result.error || 'unknown error'}`;
+    await loadLibrary(selectedAlbumId);
+  });
+
+  $('#bindLrcBtn').addEventListener('click', async () => {
+    const trackId = $('#lrcTrackSelect').value;
+    const lyricPath = $('#lrcFileSelect').value;
+    const result = await window.mmcc.bindLrcToTrack(trackId, lyricPath);
+
+    $('#bindLrcLog').textContent = result.ok
+      ? 'LRC 已綁定到歌曲。'
+      : `LRC 綁定失敗：${result.error || 'unknown error'}`;
+
+    if (result.ok) await loadLibrary(selectedAlbumId);
+  });
+
+  $('#unbindLrcBtn').addEventListener('click', async () => {
+    const trackId = $('#lrcTrackSelect').value;
+    const result = await window.mmcc.unbindLrcFromTrack(trackId);
+
+    $('#bindLrcLog').textContent = result.ok
+      ? '已移除該歌曲的 LRC 綁定。'
+      : `移除失敗：${result.error || 'unknown error'}`;
+
+    if (result.ok) await loadLibrary(selectedAlbumId);
+  });
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
   $('#choosePvsBtn').addEventListener('click', async () => {
     $('#bindPvLog').textContent = 'PV 入庫中，請稍候...';
     const result = await window.mmcc.chooseAndImportPvs();
@@ -506,6 +774,46 @@ function bindBindingManager() {
   });
 }
 
+<<<<<<< HEAD
+=======
+function bindDeleteManager() {
+  $('#deleteFileFilter')?.addEventListener('change', renderDataFileTable);
+  $('#reloadDeleteFilesBtn')?.addEventListener('click', () => loadLibrary(selectedAlbumId));
+
+  $('#deleteTrackTable')?.addEventListener('click', async event => {
+    const recordBtn = event.target.closest('.delete-track-record-btn');
+    const filesBtn = event.target.closest('.delete-track-files-btn');
+    const button = recordBtn || filesBtn;
+    if (!button) return;
+
+    const trackId = button.dataset.trackId;
+    const track = (library?.tracks || []).find(item => item.id === trackId);
+    const deleteFiles = Boolean(filesBtn);
+    const message = deleteFiles
+      ? `確定刪除歌曲「${track?.title || trackId}」以及未被其他項目引用的 data 檔案？`
+      : `確定只刪除歌曲記錄「${track?.title || trackId}」？data 檔案會保留。`;
+
+    if (!confirm(message)) return;
+
+    const result = await window.mmcc.deleteTrack(trackId, deleteFiles);
+    $('#deleteTrackLog').textContent = formatDeleteLog(result);
+    await loadLibrary(selectedAlbumId);
+  });
+
+  $('#dataFileTable')?.addEventListener('click', async event => {
+    const btn = event.target.closest('.delete-data-file-btn');
+    if (!btn) return;
+
+    const relPath = btn.dataset.path;
+    if (!confirm(`確定直接刪除 data 檔案？\n${relPath}\n\n引用它的歌曲 / LRC / PV / BG 記錄會同步清理。`)) return;
+
+    const result = await window.mmcc.deleteDataFile(relPath);
+    $('#deleteFileLog').textContent = formatDeleteLog(result);
+    await loadLibrary(selectedAlbumId);
+  });
+}
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
 function bindSettings() {
   async function saveAndMaybeLaunch(launch = false) {
     const result = await window.mmcc.saveSettings(currentSettingsFromForm());
@@ -520,6 +828,48 @@ function bindSettings() {
   $('#launchBtn').addEventListener('click', () => saveAndMaybeLaunch(true));
   $('#openPlayerBtn').addEventListener('click', () => window.mmcc.launchPlayer());
 
+<<<<<<< HEAD
+=======
+  $('#convertMediaBtn')?.addEventListener('click', async () => {
+    await window.mmcc.saveSettings(currentSettingsFromForm());
+    $('#settingsLog').textContent = '轉換中，請稍候。大檔案可能需要幾分鐘...';
+    const result = await window.mmcc.convertExistingMedia();
+    $('#settingsLog').textContent = formatMediaConvertResult(result);
+    await loadLibrary(selectedAlbumId);
+  });
+
+
+  $('#chooseDataRootBtn')?.addEventListener('click', async () => {
+    $('#dataRootLog').textContent = '正在選擇 DATA 位置...';
+    const result = await window.mmcc.chooseDataRoot();
+    if (result.canceled) {
+      fillDataRootForm();
+      return;
+    }
+    $('#dataRootLog').textContent = result.ok ? `DATA 位置已切換：${result.dataDir}` : `DATA 位置切換失敗：${result.error || 'unknown error'}`;
+    await loadLibrary(selectedAlbumId);
+  });
+
+  $('#applyDataRootBtn')?.addEventListener('click', async () => {
+    const path = $('#dataRootPath')?.value.trim();
+    if (!path) {
+      $('#dataRootLog').textContent = 'DATA 路徑不能為空。';
+      return;
+    }
+    $('#dataRootLog').textContent = '正在套用 DATA 位置...';
+    const result = await window.mmcc.setDataRoot(path);
+    $('#dataRootLog').textContent = result.ok ? `DATA 位置已切換：${result.dataDir}` : `DATA 位置切換失敗：${result.error || 'unknown error'}`;
+    if (result.ok) await loadLibrary(selectedAlbumId);
+  });
+
+  $('#resetDataRootBtn')?.addEventListener('click', async () => {
+    if (!confirm('確定回到預設 DATA 位置？這不會搬移舊 DATA，只會切換目前使用的資料庫路徑。')) return;
+    const result = await window.mmcc.resetDataRoot();
+    $('#dataRootLog').textContent = result.ok ? `已回到預設 DATA：${result.dataDir}` : `回到預設失敗：${result.error || 'unknown error'}`;
+    if (result.ok) await loadLibrary(selectedAlbumId);
+  });
+
+>>>>>>> 45d1d53 (Release v0.4.2.1)
   $('#exportBtn').addEventListener('click', async () => {
     $('#exportLog').textContent = '匯出中，請稍候...';
     const result = await window.mmcc.exportDataZip();
@@ -536,6 +886,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindAssetImport();
   bindAlbumManager();
   bindBindingManager();
+<<<<<<< HEAD
+=======
+  bindDeleteManager();
+>>>>>>> 45d1d53 (Release v0.4.2.1)
   bindSettings();
   await loadLibrary();
 });

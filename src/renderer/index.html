@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>Music Carousel Admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin">
+  <aside>
+    <div class="brand">
+      <div class="brand-mark">♪</div>
+      <div>
+        <h1>音樂輪播台</h1>
+        <p>Music Carousel Channel</p>
+      </div>
+    </div>
+    <button data-page="assets" class="active">資產管理</button>
+    <button data-page="albums">專輯管理</button>
+    <button data-page="bind">綁定管理</button>
+    <button data-page="delete">刪除管理</button>
+    <button data-page="export">資產匯出</button>
+    <button data-page="settings">播放設定</button>
+    <button data-page="play">正式播放</button>
+  </aside>
+
+  <main>
+    <section id="assets" class="page active">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">Library</p>
+          <h2>資產管理</h2>
+        </div>
+      </div>
+      <p class="hint">
+        把音訊、LRC、PV、背景圖或整個專輯資料夾拖放到這裡入庫。
+        同名檔案會自動配對，例如 <code>song.wav</code> + <code>song.lrc</code> + <code>song.mp4</code>。
+      </p>
+
+      <div id="dropzone">
+        <strong>拖放檔案或資料夾</strong>
+        <span>支援音訊、LRC、PV、背景圖，也支援多專輯父資料夾</span>
+      </div>
+      <div class="actions">
+        <button id="chooseAssetsBtn" class="primary">選擇檔案或資料夾入庫</button>
+        <button id="reloadLibraryBtn">重新讀取資料庫</button>
+      </div>
+
+      <div id="libraryStats" class="stats"></div>
+      <pre id="assetLog"></pre>
+
+      <div class="card">
+        <h3>入庫規則</h3>
+        <p class="hint">
+          選擇單一父資料夾時，如果它的下層包含多個專輯資料夾，會自動拆成多張專輯；
+          如果選擇的是單張專輯資料夾，會以該資料夾名稱作為專輯名稱。
+          同一專輯內同名作品不會重複建立，只會補掛或更新同名 LRC / PV。
+        </p>
+      </div>
+    </section>
+
+    <section id="albums" class="page">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">Albums</p>
+          <h2>專輯管理</h2>
+        </div>
+      </div>
+      <p class="hint">這裡可以一次管理多張專輯。修改後按「保存全部專輯」。已有作品的專輯名稱會同步更新到作品資料。</p>
+
+      <div class="card">
+        <h3>新增專輯</h3>
+        <div class="inline-form">
+          <input id="newAlbumTitle" type="text" placeholder="新專輯名稱">
+          <input id="newAlbumArtist" type="text" placeholder="演出者 / 作者">
+          <input id="newAlbumYear" type="text" placeholder="年份">
+          <button id="addAlbumBtn" class="primary">新增專輯</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>全部專輯</h3>
+        <div class="table-wrap">
+          <table id="albumTable">
+            <thead>
+              <tr>
+                <th>選中</th>
+                <th>專輯名稱</th>
+                <th>演出者 / 作者</th>
+                <th>年份</th>
+                <th>備註</th>
+                <th>作品數</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button id="saveAllAlbumsBtn" class="primary">保存全部專輯</button>
+        </div>
+        <p id="albumManagerLog"></p>
+      </div>
+
+      <div class="card">
+        <h3>選中專輯內作品</h3>
+        <label>查看專輯
+          <select id="trackAlbumSelect"></select>
+        </label>
+        <div class="table-wrap">
+          <table id="trackTable">
+            <thead>
+              <tr>
+                <th>作品</th>
+                <th>音訊</th>
+                <th>LRC</th>
+                <th>PV</th>
+                <th>PureMusic</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="bind" class="page">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">Binding</p>
+          <h2>綁定管理</h2>
+        </div>
+      </div>
+      <p class="hint">這裡可以批量把歌曲綁定到專輯，也可以把獨立 PV 綁定到歌曲。</p>
+
+      <div class="card grid-2">
+        <div>
+          <h3>歌曲批量綁定專輯</h3>
+          <div class="inline-form">
+            <label>篩選專輯
+              <select id="bindFilterAlbum"></select>
+            </label>
+            <label>綁定到
+              <select id="bindTargetAlbum"></select>
+            </label>
+            <button id="bindSelectedTracksBtn" class="primary">把選中歌曲綁到專輯</button>
+          </div>
+          <div class="actions compact">
+            <button id="selectAllVisibleTracksBtn">全選可見歌曲</button>
+            <button id="clearSelectedTracksBtn">清除選取</button>
+          </div>
+          <p id="bindAlbumLog"></p>
+        </div>
+        <div class="mini-card">
+          <strong>用途</strong>
+          <p>適合先把一批歌曲入庫成錯誤專輯後，再一次性移到正確專輯。不需要逐首修改 YAML。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>歌曲列表</h3>
+        <div class="table-wrap">
+          <table id="bindTrackTable">
+            <thead>
+              <tr>
+                <th>選擇</th>
+                <th>歌曲</th>
+                <th>目前專輯</th>
+                <th>音訊</th>
+                <th>LRC</th>
+                <th>PV</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <div class="card grid-2">
+        <div>
+          <h3>LRC 綁定歌曲</h3>
+          <p class="hint">可以先把 LRC 檔案入庫到 LRC 池，再手動或自動綁定到歌曲。</p>
+          <div class="actions">
+            <button id="chooseLrcsBtn">選擇 LRC 入庫</button>
+            <button id="autoBindLrcBtn" class="primary">按同名自動綁定 LRC</button>
+          </div>
+          <div class="inline-form stackable">
+            <label>歌曲
+              <select id="lrcTrackSelect"></select>
+            </label>
+            <label>LRC
+              <select id="lrcFileSelect"></select>
+            </label>
+            <button id="bindLrcBtn" class="primary">綁定 LRC</button>
+            <button id="unbindLrcBtn" class="danger">移除該歌曲 LRC</button>
+          </div>
+          <p id="bindLrcLog"></p>
+        </div>
+        <div class="mini-card">
+          <strong>自動綁定規則</strong>
+          <p>只有「歌曲名」與「LRC 檔名 stem」完全同名，且雙方都唯一時才會自動綁定；遇到重名會跳過並提示，避免誤綁。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>LRC 池</h3>
+        <div class="table-wrap">
+          <table id="lrcTable">
+            <thead>
+              <tr>
+                <th>LRC 檔案</th>
+                <th>狀態</th>
+                <th>已綁定歌曲</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card grid-2">
+        <div>
+          <h3>PV 綁定歌曲</h3>
+          <p class="hint">可以先把 PV 檔案入庫到 PV 池，再手動或自動綁定到歌曲。</p>
+          <div class="actions">
+            <button id="choosePvsBtn">選擇 PV 入庫</button>
+            <button id="autoBindPvBtn" class="primary">按同名自動綁定 PV</button>
+          </div>
+          <div class="inline-form stackable">
+            <label>歌曲
+              <select id="pvTrackSelect"></select>
+            </label>
+            <label>PV
+              <select id="pvFileSelect"></select>
+            </label>
+            <button id="bindPvBtn" class="primary">綁定 PV</button>
+            <button id="unbindPvBtn" class="danger">移除該歌曲 PV</button>
+          </div>
+          <p id="bindPvLog"></p>
+        </div>
+        <div class="mini-card">
+          <strong>自動綁定規則</strong>
+          <p>只有「歌曲名」與「PV 檔名 stem」完全同名，且雙方都唯一時才會自動綁定；遇到重名會跳過並提示，避免誤綁。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>PV 池</h3>
+        <div class="table-wrap">
+          <table id="pvTable">
+            <thead>
+              <tr>
+                <th>PV 檔案</th>
+                <th>狀態</th>
+                <th>已綁定歌曲</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="delete" class="page">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">Delete</p>
+          <h2>刪除管理</h2>
+        </div>
+      </div>
+      <p class="hint">這裡可以刪除歌曲記錄，也可以直接刪除 <code>data</code> 內的 LRC、歌曲音訊、PV、背景圖檔案。直接刪除檔案時，系統會同步清理 config.yaml 裡的引用。</p>
+
+      <div class="card">
+        <h3>歌曲刪除</h3>
+        <p class="hint">「只刪記錄」會保留 data 裡的檔案；「刪記錄+未被引用檔案」會同時清掉這首歌專用的音訊、LRC、PV。</p>
+        <div class="table-wrap">
+          <table id="deleteTrackTable">
+            <thead>
+              <tr>
+                <th>歌曲</th>
+                <th>專輯</th>
+                <th>音訊</th>
+                <th>LRC</th>
+                <th>PV</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="deleteTrackLog"></p>
+      </div>
+
+      <div class="card">
+        <h3>/data 檔案刪除</h3>
+        <p class="hint">可直接刪除 data 內的檔案。刪除音訊會移除使用該音訊的歌曲；刪除 LRC/PV 會清掉對應綁定；刪除 BG 會移除背景圖記錄。</p>
+        <div class="inline-form">
+          <label>類型
+            <select id="deleteFileFilter">
+              <option value="__all__">全部</option>
+              <option value="song">歌曲音訊</option>
+              <option value="lrc">LRC</option>
+              <option value="pv">PV</option>
+              <option value="bg">BG</option>
+              <option value="other">其他</option>
+            </select>
+          </label>
+          <button id="reloadDeleteFilesBtn">重新整理</button>
+        </div>
+        <div class="table-wrap">
+          <table id="dataFileTable">
+            <thead>
+              <tr>
+                <th>類型</th>
+                <th>檔案</th>
+                <th>大小</th>
+                <th>引用</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="deleteFileLog"></p>
+      </div>
+    </section>
+
+    <section id="export" class="page">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">Export</p>
+          <h2>資產匯出</h2>
+        </div>
+      </div>
+      <p class="hint">把目前的 <code>data</code> 目錄打包成 <code>data.zip</code> 並輸出到指定資料夾。</p>
+      <button id="exportBtn" class="primary">選擇資料夾並匯出 data.zip</button>
+      <p id="exportLog"></p>
+    </section>
+
+    <section id="settings" class="page">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">Playback</p>
+          <h2>播放設定</h2>
+        </div>
+      </div>
+      <div class="settings-grid card">
+        <label>字體
+          <input id="fontFamily" type="text">
+        </label>
+        <label class="check">
+          <input type="checkbox" id="enablePV"> 啟用 PV
+        </label>
+        <label>播放模式
+          <select id="playMode">
+            <option value="song-random">歌曲隨機</option>
+            <option value="album-random">專輯隨機</option>
+            <option value="song-loop">歌曲循環</option>
+            <option value="album-loop">專輯循環</option>
+            <option value="single-loop">單曲循環</option>
+          </select>
+        </label>
+        <label>背景圖模式
+          <select id="bgMode">
+            <option value="cover">鋪滿全螢幕</option>
+            <option value="contain">保持原比例</option>
+          </select>
+        </label>
+        <label>FFmpeg 路徑
+          <input id="ffmpegPath" type="text" placeholder="留空使用系統 ffmpeg">
+        </label>
+        <label>轉碼 GPU
+          <select id="transcodeGpuMode">
+            <option value="auto">Auto：自動偵測</option>
+            <option value="off">Off：CPU / libx264</option>
+            <option value="videotoolbox">macOS VideoToolbox</option>
+            <option value="nvenc">NVIDIA NVENC / CUDA</option>
+            <option value="qsv">Intel QSV</option>
+            <option value="amf">AMD AMF</option>
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="playbackGpu"> 播放時啟用 Chromium GPU
+        </label>
+      </div>
+
+      <div class="card data-root-card">
+        <h3>DATA 位置</h3>
+        <p class="hint">可把 DATA 放到任意有存取權限的位置。預設嘗試使用 <code>/MMCCDB/DATA</code>；若系統無權限，會退回使用者家目錄下的 <code>MMCCDB/DATA</code>。</p>
+        <div class="inline-form wide">
+          <input id="dataRootPath" type="text" placeholder="/MMCCDB/DATA">
+          <button id="chooseDataRootBtn">選擇 DATA 資料夾</button>
+          <button id="applyDataRootBtn" class="primary">套用 DATA 位置</button>
+          <button id="resetDataRootBtn">回到預設</button>
+        </div>
+        <p id="dataRootLog" class="hint"></p>
+      </div>
+      <div class="actions">
+        <button id="saveBtn" class="primary">Save</button>
+        <button id="applyBtn">Apply</button>
+        <button id="cancelBtn">Cancel</button>
+        <button id="launchBtn">Launch</button>
+        <button id="convertMediaBtn">轉換既有不相容媒體</button>
+      </div>
+      <p class="hint">ProRes MOV 會轉為 H.264 MP4；AIF / AIFF / AIFC 會轉為 WAV。GPU 轉碼會優先使用 VideoToolbox / NVENC / QSV / AMF；MPS、Radeon ProRender、OctaneRender 屬於運算/渲染框架，不是 FFmpeg H.264 編碼器，因此不直接作為本流程的選項。</p>
+      <p id="settingsLog"></p>
+    </section>
+
+    <section id="play" class="page">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">Player</p>
+          <h2>正式播放</h2>
+        </div>
+      </div>
+      <p class="hint">開新視窗展示輪播播放頁。播放頁會重新讀取目前的 <code>data/config.yaml</code>。</p>
+      <button id="openPlayerBtn" class="primary">Launch Player Window</button>
+    </section>
+  </main>
+
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -66,8 +66,6 @@ function getAlbumTitle(albumId) {
   return (library?.albums || []).find(album => album.id === albumId)?.title || '未分類';
 }
 
-<<<<<<< HEAD
-=======
 
 function formatMediaConvertResult(result) {
   if (!result) return '';
@@ -91,20 +89,15 @@ function formatMediaConvertResult(result) {
   return lines.length ? lines.join('\n') : '沒有需要轉換的既有媒體。';
 }
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
 function currentSettingsFromForm() {
   return {
     fontFamily: $('#fontFamily').value.trim(),
     enablePV: $('#enablePV').checked,
     playMode: $('#playMode').value,
-<<<<<<< HEAD
-    bgMode: $('#bgMode').value
-=======
     bgMode: $('#bgMode').value,
     ffmpegPath: $('#ffmpegPath')?.value.trim() || '',
     transcodeGpuMode: $('#transcodeGpuMode')?.value || 'auto',
     playbackGpu: $('#playbackGpu') ? $('#playbackGpu').checked : true
->>>>>>> 45d1d53 (Release v0.4.2.1)
   };
 }
 
@@ -114,8 +107,6 @@ function fillSettingsForm() {
   $('#enablePV').checked = settings.enablePV !== false;
   $('#playMode').value = settings.playMode || 'song-random';
   $('#bgMode').value = settings.bgMode || 'cover';
-<<<<<<< HEAD
-=======
   if ($('#ffmpegPath')) $('#ffmpegPath').value = settings.ffmpegPath || '';
   if ($('#transcodeGpuMode')) $('#transcodeGpuMode').value = settings.transcodeGpuMode || 'auto';
   if ($('#playbackGpu')) $('#playbackGpu').checked = settings.playbackGpu !== false;
@@ -132,7 +123,6 @@ function fillDataRootForm() {
     if (dataRoot.fallbackNotice) lines.push(dataRoot.fallbackNotice);
     $('#dataRootLog').textContent = lines.join('\n');
   }
->>>>>>> 45d1d53 (Release v0.4.2.1)
 }
 
 function renderStats() {
@@ -140,18 +130,12 @@ function renderStats() {
   const tracks = library?.tracks?.length || 0;
   const bg = library?.bgImages?.length || 0;
   const videos = library?.videos?.length || 0;
-<<<<<<< HEAD
-=======
   const lyrics = library?.lyrics?.length || 0;
->>>>>>> 45d1d53 (Release v0.4.2.1)
 
   $('#libraryStats').innerHTML = `
     <div><strong>${tracks}</strong><span>作品</span></div>
     <div><strong>${albums}</strong><span>專輯</span></div>
-<<<<<<< HEAD
-=======
     <div><strong>${lyrics}</strong><span>LRC</span></div>
->>>>>>> 45d1d53 (Release v0.4.2.1)
     <div><strong>${videos}</strong><span>PV</span></div>
     <div><strong>${bg}</strong><span>背景圖</span></div>
   `;
@@ -278,11 +262,7 @@ function renderBindTrackTable() {
   tbody.innerHTML = '';
 
   if (!tracks.length) {
-<<<<<<< HEAD
-    tbody.innerHTML = '<tr><td colspan="5" class="muted">沒有可顯示的歌曲。</td></tr>';
-=======
     tbody.innerHTML = '<tr><td colspan="6" class="muted">沒有可顯示的歌曲。</td></tr>'; 
->>>>>>> 45d1d53 (Release v0.4.2.1)
     return;
   }
 
@@ -293,10 +273,7 @@ function renderBindTrackTable() {
       <td><strong>${escapeHtml(track.title)}</strong></td>
       <td>${escapeHtml(getAlbumTitle(track.albumId))}</td>
       <td class="path-cell">${escapeHtml(track.musicpath || '')}</td>
-<<<<<<< HEAD
-=======
       <td>${track.lyricpath ? `<span class="pill ok">${escapeHtml(track.lyricpath.split('/').pop())}</span>` : '<span class="pill">未綁定</span>'}</td>
->>>>>>> 45d1d53 (Release v0.4.2.1)
       <td>${track.videopath ? `<span class="pill ok">${escapeHtml(track.videopath.split('/').pop())}</span>` : '<span class="pill">未綁定</span>'}</td>
     `;
     tbody.appendChild(tr);
@@ -343,11 +320,6 @@ function renderPvTable() {
   }
 }
 
-<<<<<<< HEAD
-function renderBinding() {
-  renderBindControls();
-  renderBindTrackTable();
-=======
 
 function renderLrcSelectors() {
   const trackSelect = $('#lrcTrackSelect');
@@ -499,7 +471,6 @@ function renderBinding() {
   renderBindTrackTable();
   renderLrcSelectors();
   renderLrcTable();
->>>>>>> 45d1d53 (Release v0.4.2.1)
   renderPvSelectors();
   renderPvTable();
 }
@@ -513,10 +484,7 @@ async function loadLibrary(preferredAlbumId = '') {
   renderStats();
   renderAlbums();
   renderBinding();
-<<<<<<< HEAD
-=======
   renderDeleteManager();
->>>>>>> 45d1d53 (Release v0.4.2.1)
 }
 
 async function runImport(paths) {
@@ -692,8 +660,6 @@ function bindBindingManager() {
     }
   });
 
-<<<<<<< HEAD
-=======
   $('#chooseLrcsBtn').addEventListener('click', async () => {
     $('#bindLrcLog').textContent = 'LRC 入庫中，請稍候...';
     const result = await window.mmcc.chooseAndImportLrcs();
@@ -733,7 +699,6 @@ function bindBindingManager() {
     if (result.ok) await loadLibrary(selectedAlbumId);
   });
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
   $('#choosePvsBtn').addEventListener('click', async () => {
     $('#bindPvLog').textContent = 'PV 入庫中，請稍候...';
     const result = await window.mmcc.chooseAndImportPvs();
@@ -774,8 +739,6 @@ function bindBindingManager() {
   });
 }
 
-<<<<<<< HEAD
-=======
 function bindDeleteManager() {
   $('#deleteFileFilter')?.addEventListener('change', renderDataFileTable);
   $('#reloadDeleteFilesBtn')?.addEventListener('click', () => loadLibrary(selectedAlbumId));
@@ -813,7 +776,6 @@ function bindDeleteManager() {
   });
 }
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
 function bindSettings() {
   async function saveAndMaybeLaunch(launch = false) {
     const result = await window.mmcc.saveSettings(currentSettingsFromForm());
@@ -828,8 +790,6 @@ function bindSettings() {
   $('#launchBtn').addEventListener('click', () => saveAndMaybeLaunch(true));
   $('#openPlayerBtn').addEventListener('click', () => window.mmcc.launchPlayer());
 
-<<<<<<< HEAD
-=======
   $('#convertMediaBtn')?.addEventListener('click', async () => {
     await window.mmcc.saveSettings(currentSettingsFromForm());
     $('#settingsLog').textContent = '轉換中，請稍候。大檔案可能需要幾分鐘...';
@@ -869,7 +829,6 @@ function bindSettings() {
     if (result.ok) await loadLibrary(selectedAlbumId);
   });
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
   $('#exportBtn').addEventListener('click', async () => {
     $('#exportLog').textContent = '匯出中，請稍候...';
     const result = await window.mmcc.exportDataZip();
@@ -886,10 +845,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindAssetImport();
   bindAlbumManager();
   bindBindingManager();
-<<<<<<< HEAD
-=======
   bindDeleteManager();
->>>>>>> 45d1d53 (Release v0.4.2.1)
   bindSettings();
   await loadLibrary();
 });

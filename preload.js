@@ -24,19 +24,14 @@ contextBridge.exposeInMainWorld('mmcc', {
   bindTracksToAlbum: (trackIds, albumId) => ipcRenderer.invoke('track:bindAlbum', { trackIds, albumId }),
   bindPvToTrack: (trackId, videoPath) => ipcRenderer.invoke('track:bindPv', { trackId, videoPath }),
   unbindPvFromTrack: trackId => ipcRenderer.invoke('track:unbindPv', trackId),
-<<<<<<< HEAD
-=======
   bindLrcToTrack: (trackId, lyricPath) => ipcRenderer.invoke('track:bindLrc', { trackId, lyricPath }),
   unbindLrcFromTrack: trackId => ipcRenderer.invoke('track:unbindLrc', trackId),
   deleteTrack: (trackId, deleteFiles = false) => ipcRenderer.invoke('track:delete', { trackId, deleteFiles }),
->>>>>>> 45d1d53 (Release v0.4.2.1)
 
   listPvs: () => ipcRenderer.invoke('pvs:list'),
   importPvs: paths => ipcRenderer.invoke('pvs:import', paths),
   chooseAndImportPvs: () => ipcRenderer.invoke('pvs:chooseAndImport'),
   autoBindPvs: () => ipcRenderer.invoke('pvs:autoBind'),
-<<<<<<< HEAD
-=======
   listLrcs: () => ipcRenderer.invoke('lrcs:list'),
   importLrcs: paths => ipcRenderer.invoke('lrcs:import', paths),
   chooseAndImportLrcs: () => ipcRenderer.invoke('lrcs:chooseAndImport'),
@@ -49,7 +44,6 @@ contextBridge.exposeInMainWorld('mmcc', {
   chooseDataRoot: () => ipcRenderer.invoke('data:chooseRoot'),
   setDataRoot: dataDir => ipcRenderer.invoke('data:setRoot', dataDir),
   resetDataRoot: () => ipcRenderer.invoke('data:resetRoot'),
->>>>>>> 45d1d53 (Release v0.4.2.1)
 
   exportDataZip: () => ipcRenderer.invoke('data:exportZip'),
   launchPlayer: () => ipcRenderer.invoke('player:launch'),

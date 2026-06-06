@@ -273,11 +273,7 @@ pre#assetLog {
 
 .stats {
   display: grid;
-<<<<<<< HEAD
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
-=======
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
->>>>>>> 45d1d53 (Release v0.4.2.1)
   gap: 14px;
   margin-top: 18px;
 }
@@ -633,8 +629,6 @@ body.pv-mode #overlay {
   opacity: 1;
 }
 
-<<<<<<< HEAD
-=======
 
 .data-root-card .inline-form.wide {
   align-items: stretch;
@@ -649,7 +643,6 @@ body.pv-mode #overlay {
   white-space: pre-wrap;
 }
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
 @media (max-width: 960px) {
   body.admin {
     grid-template-columns: 1fr;

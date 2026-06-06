@@ -1,25 +1,12 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-<<<<<<< HEAD
-=======
 const os = require('os');
->>>>>>> 45d1d53 (Release v0.4.2.1)
 const fs = require('fs/promises');
 const fssync = require('fs');
 const crypto = require('crypto');
 const YAML = require('yaml');
 const archiver = require('archiver');
 const { pathToFileURL } = require('url');
-<<<<<<< HEAD
-
-const ROOT_DIR = __dirname;
-const DATA_DIR = path.join(ROOT_DIR, 'data');
-const CONFIG_PATH = path.join(DATA_DIR, 'config.yaml');
-
-const AUDIO_EXT = new Set(['.wav', '.flac', '.aiff', '.aif', '.m4a', '.mp3', '.ogg', '.opus', '.aac']);
-const LRC_EXT = new Set(['.lrc']);
-const VIDEO_EXT = new Set(['.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi']);
-=======
 const { spawn } = require('child_process');
 
 const ROOT_DIR = __dirname;
@@ -41,7 +28,6 @@ const AIFF_EXT = new Set(['.aiff', '.aif', '.aifc']);
 const LRC_EXT = new Set(['.lrc']);
 const VIDEO_EXT = new Set(['.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi']);
 const VIDEO_TRANSCODE_EXT = new Set(['.mov', '.mkv', '.avi']);
->>>>>>> 45d1d53 (Release v0.4.2.1)
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp']);
 
 const ASSET_DIR_NAMES = new Set([
@@ -55,28 +41,21 @@ const DEFAULT_SETTINGS = {
   fontFamily: 'Noto Sans TC, Microsoft JhengHei, sans-serif',
   enablePV: true,
   playMode: 'song-random',
-<<<<<<< HEAD
-  bgMode: 'cover'
-=======
   bgMode: 'cover',
   ffmpegPath: '',
   transcodeGpuMode: 'auto',
   playbackGpu: true
->>>>>>> 45d1d53 (Release v0.4.2.1)
 };
 
 let mainWindow = null;
 let playerWindow = null;
 
-<<<<<<< HEAD
-=======
 // Chromium playback already uses platform GPU paths where possible.
 // These switches make Electron less conservative on GPU acceleration.
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-zero-copy');
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
 function normalizeRel(p) {
   return String(p || '').replaceAll('\\', '/').replace(/^\/+/, '');
 }
@@ -109,23 +88,6 @@ async function exists(p) {
   }
 }
 
-<<<<<<< HEAD
-async function ensureDataDirs() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.mkdir(path.join(DATA_DIR, 'bg-image'), { recursive: true });
-  await fs.mkdir(path.join(DATA_DIR, 'music', 'data'), { recursive: true });
-  await fs.mkdir(path.join(DATA_DIR, 'music', 'lyrics'), { recursive: true });
-  await fs.mkdir(path.join(DATA_DIR, 'video'), { recursive: true });
-
-  if (!(await exists(CONFIG_PATH))) {
-    await fs.writeFile(CONFIG_PATH, YAML.stringify({
-      version: 2,
-      settings: DEFAULT_SETTINGS,
-      albums: [],
-      tracks: [],
-      backgrounds: []
-    }), 'utf8');
-=======
 
 async function initDataRoot() {
   LOCAL_STATE_PATH = path.join(app.getPath('userData'), 'mmcc.local.json');
@@ -226,7 +188,6 @@ async function ensureDataDirs(allowFallback = true) {
     refreshConfigPath();
     await createAtCurrentRoot();
     await saveLocalDataRoot(DATA_DIR).catch(() => {});
->>>>>>> 45d1d53 (Release v0.4.2.1)
   }
 }
 
@@ -241,8 +202,6 @@ async function hashFile(filePath) {
   });
 }
 
-<<<<<<< HEAD
-=======
 
 function getFfmpegCommand(config = {}) {
   const configured = String(config?.settings?.ffmpegPath || '').trim();
@@ -432,7 +391,6 @@ async function storePlayableAsset(filePath, targetSubdir, assetType, config, log
   return copyAsset(filePath, targetSubdir);
 }
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
 function normalizeAlbum(album) {
   const title = String(album?.title || album?.name || album?.albumTitle || 'Single').trim() || 'Single';
   const id = String(album?.id || makeId('album', title)).trim();
@@ -754,11 +712,7 @@ function choosePreferred(list, type, log, groupLabel) {
   if (!list.length) return null;
 
   const priority = type === 'audio'
-<<<<<<< HEAD
-    ? ['.wav', '.flac', '.aiff', '.aif', '.m4a', '.mp3', '.ogg', '.opus', '.aac']
-=======
     ? ['.wav', '.flac', '.aiff', '.aif', '.aifc', '.m4a', '.mp3', '.ogg', '.opus', '.aac']
->>>>>>> 45d1d53 (Release v0.4.2.1)
     : type === 'video'
       ? ['.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi']
       : ['.lrc'];
@@ -783,9 +737,6 @@ async function attachOptionalAsset(track, kind, candidate, log) {
     ? { subdir: path.join('music', 'lyrics'), pathKey: 'lyricpath', hashKey: 'lyric', sourceKey: 'lyric', label: 'LRC' }
     : { subdir: 'video', pathKey: 'videopath', hashKey: 'video', sourceKey: 'video', label: 'PV' };
 
-<<<<<<< HEAD
-  const copied = await copyAsset(candidate.filePath, spec.subdir);
-=======
   let copied;
   try {
     copied = await storePlayableAsset(candidate.filePath, spec.subdir, kind === 'video' ? 'video' : 'lyric', await loadConfig(), log, spec.label);
@@ -793,7 +744,6 @@ async function attachOptionalAsset(track, kind, candidate, log) {
     log.warnings.push(`${track.title}：${spec.label} 轉換/入庫失敗：${error.message}`);
     return false;
   }
->>>>>>> 45d1d53 (Release v0.4.2.1)
 
   track.hashes ||= {};
   track.sourceFiles ||= {};
@@ -889,17 +839,12 @@ async function importAssets(inputPaths) {
       } else {
         if (group.video.length) {
           for (const pvCandidate of group.video) {
-<<<<<<< HEAD
-            const copiedPv = await copyAsset(pvCandidate.filePath, 'video');
-            log.updatedTracks.push(`${groupLabel}：已作為獨立 PV 入庫，稍後可在「綁定管理」綁定歌曲：${copiedPv.filename}`);
-=======
             try {
               const copiedPv = await storePlayableAsset(pvCandidate.filePath, 'video', 'video', config, log, 'PV');
               log.updatedTracks.push(`${groupLabel}：已作為獨立 PV 入庫，稍後可在「綁定管理」綁定歌曲：${copiedPv.filename}`);
             } catch (error) {
               log.warnings.push(`${groupLabel}：PV 轉換/入庫失敗：${error.message}`);
             }
->>>>>>> 45d1d53 (Release v0.4.2.1)
           }
         }
 
@@ -914,9 +859,6 @@ async function importAssets(inputPaths) {
       continue;
     }
 
-<<<<<<< HEAD
-    const copiedAudio = await copyAsset(audio.filePath, path.join('music', 'data'));
-=======
     let copiedAudio;
     try {
       copiedAudio = await storePlayableAsset(audio.filePath, path.join('music', 'data'), 'audio', config, log, '音訊');
@@ -924,7 +866,6 @@ async function importAssets(inputPaths) {
       log.warnings.push(`${groupLabel}：音訊轉換/入庫失敗：${error.message}`);
       continue;
     }
->>>>>>> 45d1d53 (Release v0.4.2.1)
 
     if (existingTrack) {
       existingTrack.hashes ||= {};
@@ -1021,19 +962,13 @@ async function getLibrary() {
 
   return {
     dataDir: DATA_DIR,
-<<<<<<< HEAD
-=======
     dataRoot: DATA_DIR,
->>>>>>> 45d1d53 (Release v0.4.2.1)
     config,
     albums: config.albums,
     tracks,
     videos: await listVideoLibrary(config),
-<<<<<<< HEAD
-=======
     lyrics: await listLyricLibrary(config),
     dataFiles: await listDataFiles(config),
->>>>>>> 45d1d53 (Release v0.4.2.1)
     bgImages: config.backgrounds.map(bg => bg.path)
   };
 }
@@ -1089,10 +1024,6 @@ async function listVideoLibrary(configInput = null) {
   return videos.sort((a, b) => a.filename.localeCompare(b.filename, 'zh-Hant'));
 }
 
-<<<<<<< HEAD
-async function importPvLibrary(inputPaths) {
-  await ensureDataDirs();
-=======
 
 async function listLyricLibrary(configInput = null) {
   const config = configInput || await loadConfig();
@@ -1245,7 +1176,6 @@ async function chooseAndImportLrcs() {
 async function importPvLibrary(inputPaths) {
   await ensureDataDirs();
   const config = await loadConfig();
->>>>>>> 45d1d53 (Release v0.4.2.1)
 
   const { files, skipped } = await collectInputFiles(inputPaths || []);
   const log = {
@@ -1260,9 +1190,6 @@ async function importPvLibrary(inputPaths) {
       continue;
     }
 
-<<<<<<< HEAD
-    const copied = await copyAsset(item.filePath, 'video');
-=======
     let copied;
     try {
       copied = await storePlayableAsset(item.filePath, 'video', 'video', config, log, 'PV');
@@ -1271,7 +1198,6 @@ async function importPvLibrary(inputPaths) {
       continue;
     }
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
     if (copied.duplicateFile) {
       log.skipped.push(`PV 已存在，略過複製：${copied.filename}`);
     } else {
@@ -1377,8 +1303,6 @@ async function unbindPvFromTrack(trackId) {
   return { ok: true, track };
 }
 
-<<<<<<< HEAD
-=======
 
 async function bindLrcToTrack({ trackId, lyricPath }) {
   const config = await loadConfig();
@@ -1481,7 +1405,6 @@ async function autoBindLrcsByName() {
   return { ok: true, updated, log };
 }
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
 async function autoBindPvsByName() {
   const config = await loadConfig();
   const videos = await listVideoLibrary(config);
@@ -1690,8 +1613,6 @@ async function deleteAlbum(albumId) {
   return { ok: true };
 }
 
-<<<<<<< HEAD
-=======
 
 
 function configPathIsReferenced(config, relPath) {
@@ -1867,7 +1788,6 @@ async function convertExistingMedia() {
   return { ok: true, log };
 }
 
->>>>>>> 45d1d53 (Release v0.4.2.1)
 async function saveSettings(settings) {
   const config = await loadConfig();
 
@@ -1877,14 +1797,10 @@ async function saveSettings(settings) {
     fontFamily: settings?.fontFamily || DEFAULT_SETTINGS.fontFamily,
     enablePV: settings?.enablePV !== false,
     playMode: settings?.playMode || 'song-random',
-<<<<<<< HEAD
-    bgMode: settings?.bgMode || 'cover'
-=======
     bgMode: settings?.bgMode || 'cover',
     ffmpegPath: String(settings?.ffmpegPath || '').trim(),
     transcodeGpuMode: String(settings?.transcodeGpuMode || 'auto'),
     playbackGpu: settings?.playbackGpu !== false
->>>>>>> 45d1d53 (Release v0.4.2.1)
   };
 
   await saveConfig(config);
@@ -1929,10 +1845,7 @@ function openPlayerWindow() {
 }
 
 app.whenReady().then(async () => {
-<<<<<<< HEAD
-=======
   await initDataRoot();
->>>>>>> 45d1d53 (Release v0.4.2.1)
   await ensureDataDirs();
   createMainWindow();
 });
@@ -1971,8 +1884,6 @@ ipcMain.handle('album:updateMany', (_event, patches) => updateAlbums(patches));
 ipcMain.handle('album:delete', (_event, albumId) => deleteAlbum(albumId));
 
 ipcMain.handle('data:exportZip', exportDataZip);
-<<<<<<< HEAD
-=======
 ipcMain.handle('data:getRoot', async () => ({ ok: true, ...getDataRootInfo() }));
 ipcMain.handle('data:chooseRoot', chooseDataRoot);
 ipcMain.handle('data:setRoot', async (_event, dataDir) => {
@@ -1991,7 +1902,6 @@ ipcMain.handle('data:resetRoot', async () => {
     return { ok: false, error: error.message };
   }
 });
->>>>>>> 45d1d53 (Release v0.4.2.1)
 
 ipcMain.handle('player:launch', () => {
   openPlayerWindow();
@@ -2005,16 +1915,11 @@ ipcMain.handle('pvs:list', async () => ({ ok: true, videos: await listVideoLibra
 ipcMain.handle('pvs:import', async (_event, paths) => importPvLibrary(paths));
 ipcMain.handle('pvs:chooseAndImport', chooseAndImportPvs);
 ipcMain.handle('pvs:autoBind', autoBindPvsByName);
-<<<<<<< HEAD
-=======
 ipcMain.handle('media:convertExisting', convertExistingMedia);
->>>>>>> 45d1d53 (Release v0.4.2.1)
 
 ipcMain.handle('track:bindAlbum', (_event, payload) => bindTracksToAlbum(payload));
 ipcMain.handle('track:bindPv', (_event, payload) => bindPvToTrack(payload));
 ipcMain.handle('track:unbindPv', (_event, trackId) => unbindPvFromTrack(trackId));
-<<<<<<< HEAD
-=======
 ipcMain.handle('lrcs:list', async () => ({ ok: true, lyrics: await listLyricLibrary() }));
 ipcMain.handle('lrcs:import', async (_event, paths) => importLrcLibrary(paths));
 ipcMain.handle('lrcs:chooseAndImport', chooseAndImportLrcs);
@@ -2026,4 +1931,3 @@ ipcMain.handle('track:delete', (_event, payload) => deleteTrack(payload));
 ipcMain.handle('data:listFiles', async () => ({ ok: true, files: await listDataFiles() }));
 ipcMain.handle('data:deleteFile', (_event, payload) => deleteDataFile(payload));
 
->>>>>>> 45d1d53 (Release v0.4.2.1)

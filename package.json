@@ -1,16 +1,90 @@
 {
   "name": "my-music-carousel-channel",
-  "version": "0.4.2.1",
+  "version": "0.4.6",
   "description": "Local music carousel channel with asset manager and fullscreen player",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
   },
   "dependencies": {
     "archiver": "^7.0.1",
     "yaml": "^2.6.1"
   },
   "devDependencies": {
-    "electron": "^33.2.1"
-  }
+    "electron": "33.2.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "art.siacone.mmcc",
+    "productName": "My Music Carousel Channel",
+    "copyright": "Copyright © 2026 Misaka Sarina / LGBTALBUM",
+    "directories": {
+      "output": "dist"
+    },
+    "asar": true,
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "src/**/*",
+      "README*",
+      "LICENSE",
+      "!data/**/*",
+      "!MMCCDB/**/*",
+      "!release/**/*",
+      "!dist/**/*",
+      "!node_modules/.cache/**/*",
+      "!**/*.zip",
+      "!**/*.7z",
+      "!**/*.dmg",
+      "!**/*.exe",
+      "!**/*.msi",
+      "!**/*.AppImage",
+      "!**/*.deb",
+      "!**/*.rpm"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.music",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "AudioVideo;Audio",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": null
+  },
+  "author": "Misaka Sarina"
 }

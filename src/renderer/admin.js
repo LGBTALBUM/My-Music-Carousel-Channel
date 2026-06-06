@@ -4,6 +4,8 @@ const $$ = selector => Array.from(document.querySelectorAll(selector));
 let library = null;
 let selectedAlbumId = '';
 let selectedTrackIds = new Set();
+let manualImportItems = [];
+let resourceLoading = { videos: false, lyrics: false, dataFiles: false };
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>\"]/g, ch => ({
@@ -60,6 +62,132 @@ function formatGenericLog(log) {
     lines.push(...items.map(x => `- ${x}`));
   }
   return lines.join('\n') || '沒有可處理項目。';
+}
+
+function getActivePageId() {
+  return document.querySelector('.page.active')?.id || 'assets';
+}
+
+function clearLazyResourceLists() {
+  if (!library) return;
+  delete library.videos;
+  delete library.lyrics;
+  delete library.dataFiles;
+}
+
+async function loadLazyResource(kind, force = false) {
+  if (!library) return;
+
+  if (!force && Array.isArray(library[kind])) return;
+  if (resourceLoading[kind]) return;
+
+  resourceLoading[kind] = true;
+
+  try {
+    if (kind === 'videos') {
+      const result = await window.mmcc.listPvs();
+      library.videos = result.ok ? (result.videos || []) : [];
+    } else if (kind === 'lyrics') {
+      const result = await window.mmcc.listLrcs();
+      library.lyrics = result.ok ? (result.lyrics || []) : [];
+    } else if (kind === 'dataFiles') {
+      const result = await window.mmcc.listDataFiles();
+      library.dataFiles = result.ok ? (result.files || []) : [];
+    }
+  } finally {
+    resourceLoading[kind] = false;
+  }
+}
+
+async function loadBindingResources(force = false) {
+  if (!library) return;
+  if (force) {
+    delete library.videos;
+    delete library.lyrics;
+  }
+
+  await Promise.all([
+    loadLazyResource('videos', force),
+    loadLazyResource('lyrics', force)
+  ]);
+  renderBinding();
+}
+
+async function loadDeleteResources(force = false) {
+  if (!library) return;
+  if (force) delete library.dataFiles;
+
+  await loadLazyResource('dataFiles', force);
+  renderDeleteManager();
+}
+
+async function loadVisibleLazyResources(force = false) {
+  const page = getActivePageId();
+  if (page === 'bind') await loadBindingResources(force);
+  if (page === 'delete') await loadDeleteResources(force);
+}
+
+
+function manualKindLabel(kind) {
+  return ({ audio: '音訊', lrc: 'LRC', video: 'PV', image: 'BG' })[kind] || kind || '未知';
+}
+
+function renderManualImportAlbumSelect() {
+  const select = $('#manualImportAlbumSelect');
+  if (!select) return;
+
+  const albums = library?.albums || [];
+  select.innerHTML = `
+    <option value="__uncategorized__">未分類</option>
+    ${albums.map(album => `<option value="${escapeHtml(album.id)}">${escapeHtml(album.title)}${album.year ? ` (${escapeHtml(album.year)})` : ''}</option>`).join('')}
+    <option value="__new__">新增專輯...</option>
+  `;
+
+  if (selectedAlbumId && albums.some(album => album.id === selectedAlbumId)) {
+    select.value = selectedAlbumId;
+  }
+}
+
+function renderManualImportTable() {
+  const tbody = $('#manualImportTable tbody');
+  if (!tbody) return;
+
+  if (!manualImportItems.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="muted">尚未選擇要手動入庫的檔案。</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = manualImportItems.map((item, index) => `
+    <tr data-index="${index}">
+      <td><input type="checkbox" class="manual-import-enabled" ${item.enabled === false ? '' : 'checked'}></td>
+      <td>
+        <select class="manual-import-kind">
+          <option value="audio" ${item.kind === 'audio' ? 'selected' : ''}>音訊</option>
+          <option value="lrc" ${item.kind === 'lrc' ? 'selected' : ''}>LRC</option>
+          <option value="video" ${item.kind === 'video' ? 'selected' : ''}>PV</option>
+          <option value="image" ${item.kind === 'image' ? 'selected' : ''}>BG</option>
+        </select>
+      </td>
+      <td class="path-cell">${escapeHtml(item.filename || item.sourcePath || '')}</td>
+      <td><input class="manual-import-title" value="${escapeHtml(item.title || item.stem || '')}" placeholder="入庫名稱，不需要副檔名"></td>
+    </tr>
+  `).join('');
+}
+
+function renderManualImport() {
+  renderManualImportAlbumSelect();
+  renderManualImportTable();
+}
+
+function syncManualImportFromTable() {
+  document.querySelectorAll('#manualImportTable tbody tr[data-index]').forEach(row => {
+    const index = Number(row.dataset.index);
+    const item = manualImportItems[index];
+    if (!item) return;
+    item.enabled = row.querySelector('.manual-import-enabled')?.checked !== false;
+    item.kind = row.querySelector('.manual-import-kind')?.value || item.kind;
+    item.title = row.querySelector('.manual-import-title')?.value || item.title;
+  });
 }
 
 function getAlbumTitle(albumId) {
@@ -129,8 +257,9 @@ function renderStats() {
   const albums = library?.albums?.length || 0;
   const tracks = library?.tracks?.length || 0;
   const bg = library?.bgImages?.length || 0;
-  const videos = library?.videos?.length || 0;
-  const lyrics = library?.lyrics?.length || 0;
+  const counts = library?.resourceCounts || {};
+  const videos = Array.isArray(library?.videos) ? library.videos.length : Number(counts.videos || 0);
+  const lyrics = Array.isArray(library?.lyrics) ? library.lyrics.length : Number(counts.lyrics || 0);
 
   $('#libraryStats').innerHTML = `
     <div><strong>${tracks}</strong><span>作品</span></div>
@@ -290,9 +419,15 @@ function renderPvSelectors() {
     <option value="${escapeHtml(track.id)}">${escapeHtml(track.title)} · ${escapeHtml(getAlbumTitle(track.albumId))}${track.videopath ? ' · 已有PV' : ''}</option>
   `).join('');
 
-  pvSelect.innerHTML = (library?.videos || []).map(video => `
-    <option value="${escapeHtml(video.path)}">${escapeHtml(video.filename)}${video.usedBy?.length ? ' · 已綁定' : ''}</option>
-  `).join('');
+  if (!Array.isArray(library?.videos)) {
+    pvSelect.innerHTML = '<option value="">PV 池尚未載入，切到本頁時才讀取</option>';
+    pvSelect.disabled = true;
+  } else {
+    pvSelect.disabled = false;
+    pvSelect.innerHTML = (library.videos || []).map(video => `
+      <option value="${escapeHtml(video.path)}">${escapeHtml(video.filename)}${video.usedBy?.length ? ' · 已綁定' : ''}</option>
+    `).join('');
+  }
 
   if ([...trackSelect.options].some(opt => opt.value === oldTrack)) trackSelect.value = oldTrack;
   if ([...pvSelect.options].some(opt => opt.value === oldPv)) pvSelect.value = oldPv;
@@ -300,7 +435,14 @@ function renderPvSelectors() {
 
 function renderPvTable() {
   const tbody = $('#pvTable tbody');
-  const videos = library?.videos || [];
+  if (!tbody) return;
+
+  if (!Array.isArray(library?.videos)) {
+    tbody.innerHTML = '<tr><td colspan="3" class="muted">PV 池尚未載入。MMCC 現在只先讀 config.yaml，進入綁定頁時才掃描 PV 檔案。</td></tr>';
+    return;
+  }
+
+  const videos = library.videos || [];
   tbody.innerHTML = '';
 
   if (!videos.length) {
@@ -333,9 +475,15 @@ function renderLrcSelectors() {
     <option value="${escapeHtml(track.id)}">${escapeHtml(track.title)} · ${escapeHtml(getAlbumTitle(track.albumId))}${track.lyricpath ? ' · 已有LRC' : ''}</option>
   `).join('');
 
-  lrcSelect.innerHTML = (library?.lyrics || []).map(lyric => `
-    <option value="${escapeHtml(lyric.path)}">${escapeHtml(lyric.filename)}${lyric.usedBy?.length ? ' · 已綁定' : ''}</option>
-  `).join('');
+  if (!Array.isArray(library?.lyrics)) {
+    lrcSelect.innerHTML = '<option value="">LRC 池尚未載入，切到本頁時才讀取</option>';
+    lrcSelect.disabled = true;
+  } else {
+    lrcSelect.disabled = false;
+    lrcSelect.innerHTML = (library.lyrics || []).map(lyric => `
+      <option value="${escapeHtml(lyric.path)}">${escapeHtml(lyric.filename)}${lyric.usedBy?.length ? ' · 已綁定' : ''}</option>
+    `).join('');
+  }
 
   if ([...trackSelect.options].some(opt => opt.value === oldTrack)) trackSelect.value = oldTrack;
   if ([...lrcSelect.options].some(opt => opt.value === oldLrc)) lrcSelect.value = oldLrc;
@@ -345,7 +493,12 @@ function renderLrcTable() {
   const tbody = $('#lrcTable tbody');
   if (!tbody) return;
 
-  const lyrics = library?.lyrics || [];
+  if (!Array.isArray(library?.lyrics)) {
+    tbody.innerHTML = '<tr><td colspan="3" class="muted">LRC 池尚未載入。MMCC 現在只先讀 config.yaml，進入綁定頁時才掃描 LRC 檔案。</td></tr>';
+    return;
+  }
+
+  const lyrics = library.lyrics || [];
   tbody.innerHTML = '';
 
   if (!lyrics.length) {
@@ -434,8 +587,13 @@ function renderDataFileTable() {
   const tbody = $('#dataFileTable tbody');
   if (!tbody) return;
 
+  if (!Array.isArray(library?.dataFiles)) {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted">DATA 檔案清單尚未載入。MMCC 現在只先讀 config.yaml，進入刪除頁時才掃描 /DATA。</td></tr>';
+    return;
+  }
+
   const filter = $('#deleteFileFilter')?.value || '__all__';
-  const files = (library?.dataFiles || []).filter(file => filter === '__all__' || file.category === filter);
+  const files = (library.dataFiles || []).filter(file => filter === '__all__' || file.category === filter);
   tbody.innerHTML = '';
 
   if (!files.length) {
@@ -482,9 +640,11 @@ async function loadLibrary(preferredAlbumId = '') {
 
   fillSettingsForm();
   renderStats();
+  renderManualImport();
   renderAlbums();
   renderBinding();
   renderDeleteManager();
+  await loadVisibleLazyResources(false);
 }
 
 async function runImport(paths) {
@@ -496,11 +656,17 @@ async function runImport(paths) {
 
 function bindNavigation() {
   $$('aside button[data-page]').forEach(button => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', async () => {
       $$('aside button[data-page]').forEach(b => b.classList.remove('active'));
       button.classList.add('active');
       $$('.page').forEach(page => page.classList.remove('active'));
       $(`#${button.dataset.page}`).classList.add('active');
+
+      if (button.dataset.page === 'bind') {
+        await loadBindingResources(false);
+      } else if (button.dataset.page === 'delete') {
+        await loadDeleteResources(false);
+      }
     });
   });
 }
@@ -544,6 +710,63 @@ function bindAssetImport() {
     const result = await window.mmcc.chooseAssets();
     $('#assetLog').textContent = formatImportResult(result);
     await loadLibrary(selectedAlbumId);
+  });
+
+  $('#chooseManualImportBtn')?.addEventListener('click', async () => {
+    $('#manualImportLog').textContent = '正在讀取檔案清單...';
+    const result = await window.mmcc.chooseManualImportAssets();
+    if (result.canceled) {
+      $('#manualImportLog').textContent = '已取消。';
+      return;
+    }
+    if (!result.ok) {
+      $('#manualImportLog').textContent = `讀取失敗：${result.error || 'unknown error'}`;
+      return;
+    }
+
+    manualImportItems = (result.items || []).map(item => ({ ...item, enabled: true }));
+    renderManualImportTable();
+    const skipped = result.skipped?.length ? `\n[略過]\n${result.skipped.map(x => `- ${x}`).join('\n')}` : '';
+    $('#manualImportLog').textContent = `已載入 ${manualImportItems.length} 個檔案，可先修改類型與名稱後再入庫。${skipped}`;
+  });
+
+  $('#manualImportTable')?.addEventListener('input', syncManualImportFromTable);
+  $('#manualImportTable')?.addEventListener('change', syncManualImportFromTable);
+
+  $('#clearManualImportBtn')?.addEventListener('click', () => {
+    manualImportItems = [];
+    renderManualImportTable();
+    $('#manualImportLog').textContent = '已清空手動入庫預覽。';
+  });
+
+  $('#importManualAssetsBtn')?.addEventListener('click', async () => {
+    syncManualImportFromTable();
+    const items = manualImportItems.filter(item => item.enabled !== false);
+    if (!items.length) {
+      $('#manualImportLog').textContent = '沒有選擇要入庫的檔案。';
+      return;
+    }
+
+    const albumValue = $('#manualImportAlbumSelect')?.value || '__uncategorized__';
+    const newAlbumTitle = $('#manualImportNewAlbumTitle')?.value.trim() || '';
+    const payload = {
+      albumId: albumValue && !albumValue.startsWith('__') ? albumValue : '',
+      albumTitle: albumValue === '__new__' ? newAlbumTitle : albumValue === '__uncategorized__' ? '未分類' : '',
+      items
+    };
+
+    if (albumValue === '__new__' && !newAlbumTitle) {
+      $('#manualImportLog').textContent = '請輸入新增專輯名稱。';
+      return;
+    }
+
+    $('#manualImportLog').textContent = '手動入庫中，請稍候...';
+    const result = await window.mmcc.importManualAssets(payload);
+    $('#manualImportLog').textContent = formatImportResult(result);
+    if (result.ok) {
+      manualImportItems = [];
+      await loadLibrary(selectedAlbumId);
+    }
   });
 
   $('#reloadLibraryBtn').addEventListener('click', () => loadLibrary(selectedAlbumId));

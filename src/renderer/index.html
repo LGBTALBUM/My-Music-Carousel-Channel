@@ -38,7 +38,7 @@
 
       <div id="dropzone">
         <strong>拖放檔案或資料夾</strong>
-        <span>支援音訊、LRC、PV、背景圖，也支援多專輯父資料夾</span>
+        <span>支援音訊、LRC、PV、背景圖；專輯建議用下方手動入庫指定</span>
       </div>
       <div class="actions">
         <button id="chooseAssetsBtn" class="primary">選擇檔案或資料夾入庫</button>
@@ -48,11 +48,41 @@
       <div id="libraryStats" class="stats"></div>
       <pre id="assetLog"></pre>
 
+
+
+      <div class="card">
+        <h3>手動命名入庫</h3>
+        <p class="hint">先選擇音訊 / LRC / PV / BG，再手動修改入庫名稱與目標專輯。LRC / PV 會嘗試綁定到同一專輯內同名歌曲；找不到歌曲時會先作為獨立素材入庫。</p>
+        <div class="inline-form wide">
+          <label>目標專輯
+            <select id="manualImportAlbumSelect"></select>
+          </label>
+          <input id="manualImportNewAlbumTitle" type="text" placeholder="新增專輯名稱，選擇「新增專輯」時使用">
+          <button id="chooseManualImportBtn" class="primary">選擇並預覽入庫資產</button>
+          <button id="importManualAssetsBtn">按目前名稱入庫</button>
+          <button id="clearManualImportBtn">清空預覽</button>
+        </div>
+        <div class="table-wrap">
+          <table id="manualImportTable">
+            <thead>
+              <tr>
+                <th>入庫</th>
+                <th>類型</th>
+                <th>來源檔案</th>
+                <th>入庫名稱 / 歌曲名</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="manualImportLog"></p>
+      </div>
+
       <div class="card">
         <h3>入庫規則</h3>
         <p class="hint">
-          選擇單一父資料夾時，如果它的下層包含多個專輯資料夾，會自動拆成多張專輯；
-          如果選擇的是單張專輯資料夾，會以該資料夾名稱作為專輯名稱。
+          快速入庫不再把上層資料夾自動當成專輯名稱，會先放入「未分類」。
+          需要指定專輯與入庫檔名時，請使用下方「手動命名入庫」。
           同一專輯內同名作品不會重複建立，只會補掛或更新同名 LRC / PV。
         </p>
       </div>
@@ -403,7 +433,6 @@
         <button id="launchBtn">Launch</button>
         <button id="convertMediaBtn">轉換既有不相容媒體</button>
       </div>
-      <p class="hint">ProRes MOV 會轉為 H.264 MP4；AIF / AIFF / AIFC 會轉為 WAV。GPU 轉碼會優先使用 VideoToolbox / NVENC / QSV / AMF；MPS、Radeon ProRender、OctaneRender 屬於運算/渲染框架，不是 FFmpeg H.264 編碼器，因此不直接作為本流程的選項。</p>
       <p id="settingsLog"></p>
     </section>
 

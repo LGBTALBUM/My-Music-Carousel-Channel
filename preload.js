@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('mmcc', {
 
   importAssets: paths => ipcRenderer.invoke('assets:import', paths),
   chooseAssets: () => ipcRenderer.invoke('assets:chooseAndImport'),
+  chooseManualImportAssets: () => ipcRenderer.invoke('assets:chooseManualImport'),
+  stageManualImportAssets: paths => ipcRenderer.invoke('assets:stageManualImport', paths),
+  importManualAssets: payload => ipcRenderer.invoke('assets:importManual', payload),
 
   saveSettings: settings => ipcRenderer.invoke('settings:save', settings),
 
@@ -38,6 +41,7 @@ contextBridge.exposeInMainWorld('mmcc', {
   autoBindLrcs: () => ipcRenderer.invoke('lrcs:autoBind'),
   listDataFiles: () => ipcRenderer.invoke('data:listFiles'),
   deleteDataFile: path => ipcRenderer.invoke('data:deleteFile', { path }),
+  refreshResourceIndex: () => ipcRenderer.invoke('resources:refreshIndex'),
   convertExistingMedia: () => ipcRenderer.invoke('media:convertExisting'),
 
   getDataRoot: () => ipcRenderer.invoke('data:getRoot'),

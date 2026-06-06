@@ -29,6 +29,7 @@ const LRC_EXT = new Set(['.lrc']);
 const VIDEO_EXT = new Set(['.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi']);
 const VIDEO_TRANSCODE_EXT = new Set(['.mov', '.mkv', '.avi']);
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp']);
+const DEFAULT_IMPORT_ALBUM_TITLE = '未分類';
 
 const ASSET_DIR_NAMES = new Set([
   'audio', 'audios', 'music', 'musics', 'data',
@@ -171,7 +172,15 @@ async function ensureDataDirs(allowFallback = true) {
         settings: DEFAULT_SETTINGS,
         albums: [],
         tracks: [],
-        backgrounds: []
+        backgrounds: [],
+        resourceIndex: {
+          version: 1,
+          updatedAt: new Date().toISOString(),
+          counts: { lyrics: 0, videos: 0, boundLyrics: 0, boundVideos: 0, standaloneLyrics: 0, standaloneVideos: 0 },
+          lyrics: [],
+          videos: []
+        },
+        resourceCounts: { lyrics: 0, videos: 0, boundLyrics: 0, boundVideos: 0, standaloneLyrics: 0, standaloneVideos: 0 }
       }), 'utf8');
     }
   }
@@ -205,7 +214,22 @@ async function hashFile(filePath) {
 
 function getFfmpegCommand(config = {}) {
   const configured = String(config?.settings?.ffmpegPath || '').trim();
-  return configured || process.env.FFMPEG_PATH || 'ffmpeg';
+  if (configured) return configured;
+
+  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+
+  const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  const candidates = [
+    app.isPackaged ? path.join(process.resourcesPath, 'bin', exe) : '',
+    app.isPackaged ? path.join(process.resourcesPath, 'resources', 'bin', exe) : '',
+    path.join(ROOT_DIR, 'resources', 'bin', exe)
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fssync.existsSync(candidate)) return candidate;
+  }
+
+  return 'ffmpeg';
 }
 
 async function runFfmpeg(config, args) {
@@ -303,7 +327,7 @@ async function buildVideoTranscodeArgs(filePath, output, config, log) {
   const finish = ['-movflags', '+faststart', output];
 
   if (encoder === 'videotoolbox') {
-    log?.warnings?.push('GPU 轉碼：使用 macOS VideoToolbox。MPS / OctaneRender / Radeon ProRender 不是 FFmpeg H.264 轉碼器，不能直接用於本流程。');
+    log?.warnings?.push('GPU 轉碼：使用 macOS VideoToolbox。');
     return ['-y', '-hwaccel', 'videotoolbox', '-i', filePath, ...commonBeforeOutput, '-c:v', 'h264_videotoolbox', '-b:v', '12000k', ...audioArgs, ...finish];
   }
 
@@ -318,7 +342,7 @@ async function buildVideoTranscodeArgs(filePath, output, config, log) {
   }
 
   if (encoder === 'amf') {
-    log?.warnings?.push('GPU 轉碼：使用 AMD AMF。Radeon ProRender 是渲染器，不是本流程的影片轉碼器。');
+    log?.warnings?.push('GPU 轉碼：使用 AMD AMF。');
     return ['-y', '-i', filePath, ...commonBeforeOutput, '-c:v', 'h264_amf', '-quality', 'quality', '-qp_i', '18', '-qp_p', '18', ...audioArgs, ...finish];
   }
 
@@ -449,6 +473,163 @@ function normalizeBackground(bg) {
   };
 }
 
+function normalizeResourceRecord(item, kind) {
+  const rel = normalizeRel(typeof item === 'string' ? item : (item?.path || item?.file || item?.rel || ''));
+  if (!rel) return null;
+
+  const ext = path.extname(rel).toLowerCase();
+  if (kind === 'lyric' && ext && !LRC_EXT.has(ext)) return null;
+  if (kind === 'video' && ext && !VIDEO_EXT.has(ext)) return null;
+
+  const filename = path.basename(rel);
+  return {
+    path: rel,
+    filename: String((typeof item === 'object' && item?.filename) || filename),
+    stem: String((typeof item === 'object' && item?.stem) || path.basename(filename, path.extname(filename))),
+    hash: String((typeof item === 'object' && item?.hash) || ''),
+    exists: typeof item === 'object' && typeof item.exists === 'boolean' ? item.exists : undefined,
+    importedAt: String((typeof item === 'object' && item?.importedAt) || ''),
+    updatedAt: String((typeof item === 'object' && item?.updatedAt) || '')
+  };
+}
+
+function normalizeResourceRecordList(items, kind) {
+  const out = [];
+  const seen = new Set();
+
+  for (const item of Array.isArray(items) ? items : []) {
+    const record = normalizeResourceRecord(item, kind);
+    if (!record || seen.has(record.path)) continue;
+    seen.add(record.path);
+    out.push(record);
+  }
+
+  return out;
+}
+
+function mergeResourceRecord(current, incoming) {
+  const merged = { ...(current || {}), ...(incoming || {}) };
+  merged.path = normalizeRel(merged.path || current?.path || incoming?.path || '');
+  merged.filename = String(merged.filename || path.basename(merged.path));
+  merged.stem = String(merged.stem || path.basename(merged.filename, path.extname(merged.filename)));
+  merged.hash = String(merged.hash || current?.hash || incoming?.hash || '');
+  merged.importedAt = String(merged.importedAt || current?.importedAt || incoming?.importedAt || '');
+  merged.updatedAt = String(merged.updatedAt || current?.updatedAt || incoming?.updatedAt || '');
+  if (typeof merged.exists !== 'boolean') delete merged.exists;
+  return merged;
+}
+
+function buildResourceCounts(config, lyrics, videos) {
+  const lyricPaths = new Set((lyrics || []).map(item => normalizeRel(item.path)).filter(Boolean));
+  const videoPaths = new Set((videos || []).map(item => normalizeRel(item.path)).filter(Boolean));
+  const boundLyricPaths = new Set();
+  const boundVideoPaths = new Set();
+
+  for (const track of config.tracks || []) {
+    const lyric = normalizeRel(track.lyricpath || '');
+    const video = normalizeRel(track.videopath || '');
+    if (lyric) boundLyricPaths.add(lyric);
+    if (video) boundVideoPaths.add(video);
+  }
+
+  return {
+    lyrics: lyricPaths.size,
+    videos: videoPaths.size,
+    boundLyrics: boundLyricPaths.size,
+    boundVideos: boundVideoPaths.size,
+    standaloneLyrics: Math.max(0, lyricPaths.size - boundLyricPaths.size),
+    standaloneVideos: Math.max(0, videoPaths.size - boundVideoPaths.size)
+  };
+}
+
+function rebuildResourceIndex(config, options = {}) {
+  const now = options.now || new Date().toISOString();
+  const rawIndex = config.resourceIndex || {};
+  const lyricMap = new Map();
+  const videoMap = new Map();
+
+  for (const record of normalizeResourceRecordList(rawIndex.lyrics, 'lyric')) {
+    lyricMap.set(record.path, record);
+  }
+
+  for (const record of normalizeResourceRecordList(rawIndex.videos, 'video')) {
+    videoMap.set(record.path, record);
+  }
+
+  for (const track of config.tracks || []) {
+    const lyric = normalizeRel(track.lyricpath || '');
+    if (lyric) {
+      const incoming = normalizeResourceRecord({
+        path: lyric,
+        hash: track.hashes?.lyric || '',
+        filename: track.sourceFiles?.lyric || path.basename(lyric),
+        updatedAt: track.updatedAt || '',
+        importedAt: track.importedAt || ''
+      }, 'lyric');
+      lyricMap.set(lyric, mergeResourceRecord(lyricMap.get(lyric), incoming));
+    }
+
+    const video = normalizeRel(track.videopath || '');
+    if (video) {
+      const incoming = normalizeResourceRecord({
+        path: video,
+        hash: track.hashes?.video || '',
+        filename: track.sourceFiles?.video || path.basename(video),
+        updatedAt: track.updatedAt || '',
+        importedAt: track.importedAt || ''
+      }, 'video');
+      videoMap.set(video, mergeResourceRecord(videoMap.get(video), incoming));
+    }
+  }
+
+  const lyrics = Array.from(lyricMap.values()).sort((a, b) => a.path.localeCompare(b.path, 'zh-Hant'));
+  const videos = Array.from(videoMap.values()).sort((a, b) => a.path.localeCompare(b.path, 'zh-Hant'));
+  const counts = buildResourceCounts(config, lyrics, videos);
+
+  config.resourceIndex = {
+    version: 1,
+    updatedAt: rawIndex.updatedAt || now,
+    counts,
+    lyrics,
+    videos
+  };
+  config.resourceCounts = counts;
+
+  return config;
+}
+
+function addResourceIndexEntry(config, kind, relPath, meta = {}) {
+  if (!config.resourceIndex) {
+    config.resourceIndex = { version: 1, updatedAt: '', counts: {}, lyrics: [], videos: [] };
+  }
+
+  const listName = kind === 'video' || kind === 'videos' ? 'videos' : 'lyrics';
+  const recordKind = listName === 'videos' ? 'video' : 'lyric';
+  const record = normalizeResourceRecord({ path: relPath, ...meta }, recordKind);
+  if (!record) return null;
+
+  const list = normalizeResourceRecordList(config.resourceIndex[listName], recordKind);
+  const index = list.findIndex(item => item.path === record.path);
+  if (index >= 0) list[index] = mergeResourceRecord(list[index], record);
+  else list.push(record);
+
+  config.resourceIndex[listName] = list;
+  config.resourceIndex.updatedAt = new Date().toISOString();
+  rebuildResourceIndex(config, { now: config.resourceIndex.updatedAt });
+  return record;
+}
+
+function removeResourceIndexEntry(config, relPath) {
+  const rel = normalizeRel(relPath);
+  if (!rel) return;
+
+  if (!config.resourceIndex) return;
+  config.resourceIndex.lyrics = normalizeResourceRecordList(config.resourceIndex.lyrics, 'lyric').filter(item => item.path !== rel);
+  config.resourceIndex.videos = normalizeResourceRecordList(config.resourceIndex.videos, 'video').filter(item => item.path !== rel);
+  config.resourceIndex.updatedAt = new Date().toISOString();
+  rebuildResourceIndex(config, { now: config.resourceIndex.updatedAt });
+}
+
 function normalizeConfig(raw) {
   const albumsById = new Map();
   const rawAlbums = Array.isArray(raw?.albums) ? raw.albums : [];
@@ -494,7 +675,7 @@ function normalizeConfig(raw) {
     backgrounds.push(bg);
   }
 
-  return {
+  const normalized = {
     version: 2,
     settings: {
       ...DEFAULT_SETTINGS,
@@ -502,8 +683,18 @@ function normalizeConfig(raw) {
     },
     albums: Array.from(albumsById.values()),
     tracks,
-    backgrounds
+    backgrounds,
+    resourceIndex: {
+      version: 1,
+      updatedAt: String(raw?.resourceIndex?.updatedAt || ''),
+      counts: raw?.resourceIndex?.counts || raw?.resourceCounts || {},
+      lyrics: normalizeResourceRecordList(raw?.resourceIndex?.lyrics || raw?.lyricsIndex || [], 'lyric'),
+      videos: normalizeResourceRecordList(raw?.resourceIndex?.videos || raw?.videosIndex || [], 'video')
+    },
+    resourceCounts: raw?.resourceCounts || raw?.resourceIndex?.counts || {}
   };
+
+  return rebuildResourceIndex(normalized, { now: normalized.resourceIndex.updatedAt || new Date().toISOString() });
 }
 
 async function readConfigRaw() {
@@ -523,7 +714,9 @@ async function loadConfig() {
 
 async function saveConfig(config) {
   await ensureDataDirs();
-  const normalized = normalizeConfig(config);
+  const normalized = rebuildResourceIndex(normalizeConfig(config), { now: new Date().toISOString() });
+  normalized.resourceIndex.updatedAt = new Date().toISOString();
+  normalized.resourceCounts = normalized.resourceIndex.counts;
   await fs.writeFile(CONFIG_PATH, YAML.stringify(normalized), 'utf8');
   return normalized;
 }
@@ -603,7 +796,7 @@ async function collectInputFiles(inputPaths) {
     if (item.isFile) {
       files.push({
         filePath: item.inputPath,
-        albumTitle: path.basename(path.dirname(item.inputPath)) || 'Single',
+        albumTitle: DEFAULT_IMPORT_ALBUM_TITLE,
         sourceRoot: path.dirname(item.inputPath)
       });
       continue;
@@ -612,18 +805,14 @@ async function collectInputFiles(inputPaths) {
     if (!item.isDirectory) continue;
 
     const root = item.inputPath;
-    const rootName = path.basename(root) || 'Single';
+    const rootName = DEFAULT_IMPORT_ALBUM_TITLE;
     const entries = await fs.readdir(root, { withFileTypes: true });
     const childDirs = entries.filter(ent => ent.isDirectory() && !ent.name.startsWith('.'));
     const directMedia = entries.some(ent => ent.isFile() && classify(path.join(root, ent.name)) !== 'unknown');
     const childDirNames = childDirs.map(ent => normalizeKey(ent.name));
     const assetContainer = childDirNames.length > 0 && childDirNames.every(name => ASSET_DIR_NAMES.has(name));
 
-    const splitByFirstChild =
-      selectedDirectories === 1 &&
-      !directMedia &&
-      childDirs.length >= 2 &&
-      !assetContainer;
+    const splitByFirstChild = false;
 
     const deepFiles = await listFilesDeep(root);
 
@@ -708,6 +897,127 @@ async function copyAsset(filePath, targetSubdir) {
   };
 }
 
+
+function filenameForDesiredTitle(filePath, desiredTitle, forcedExt = '') {
+  const sourceExt = path.extname(filePath).toLowerCase();
+  const ext = forcedExt || sourceExt;
+  const sourceStem = path.basename(filePath, path.extname(filePath));
+  const stem = safeFilename(String(desiredTitle || sourceStem).trim() || sourceStem);
+  return `${stem}${ext}`;
+}
+
+async function copyAssetNamed(filePath, targetSubdir, desiredTitle = '', forcedExt = '') {
+  const hash = await hashFile(filePath);
+  const targetDir = path.join(DATA_DIR, targetSubdir);
+  await fs.mkdir(targetDir, { recursive: true });
+
+  const existingSameHash = await findExistingByHash(targetDir, hash);
+  if (existingSameHash) {
+    return {
+      rel: normalizeRel(path.relative(DATA_DIR, existingSameHash)),
+      hash,
+      copied: false,
+      duplicateFile: true,
+      filename: path.basename(existingSameHash)
+    };
+  }
+
+  const desiredName = safeFilename(filenameForDesiredTitle(filePath, desiredTitle, forcedExt));
+  const ext = path.extname(desiredName);
+  const stem = path.basename(desiredName, ext);
+  let dest = path.join(targetDir, desiredName);
+
+  if (await exists(dest)) {
+    const existingHash = await hashFile(dest).catch(() => '');
+    if (existingHash === hash) {
+      return {
+        rel: normalizeRel(path.relative(DATA_DIR, dest)),
+        hash,
+        copied: false,
+        duplicateFile: true,
+        filename: path.basename(dest)
+      };
+    }
+    dest = path.join(targetDir, `${stem}-${hash.slice(0, 8)}${ext}`);
+  }
+
+  await fs.copyFile(filePath, dest);
+
+  return {
+    rel: normalizeRel(path.relative(DATA_DIR, dest)),
+    hash,
+    copied: true,
+    duplicateFile: false,
+    filename: path.basename(dest)
+  };
+}
+
+async function transcodeAssetNamed(filePath, targetSubdir, outputExt, config, log, label, desiredTitle, buildArgs) {
+  const sourceHash = await hashFile(filePath);
+  const targetDir = path.join(DATA_DIR, targetSubdir);
+  await fs.mkdir(targetDir, { recursive: true });
+
+  const sourceName = path.basename(filePath, path.extname(filePath));
+  const stem = safeFilename(String(desiredTitle || sourceName).trim() || sourceName);
+  let dest = path.join(targetDir, `${stem}${outputExt}`);
+
+  if (await exists(dest)) {
+    dest = path.join(targetDir, `${stem}-${sourceHash.slice(0, 8)}${outputExt}`);
+    if (await exists(dest)) {
+      return {
+        rel: normalizeRel(path.relative(DATA_DIR, dest)),
+        hash: sourceHash,
+        copied: false,
+        duplicateFile: true,
+        transcoded: true,
+        filename: path.basename(dest)
+      };
+    }
+  }
+
+  const temp = `${dest}.tmp-${process.pid}${outputExt}`;
+
+  try {
+    await runFfmpeg(config, await buildArgs(temp));
+    await fs.rename(temp, dest);
+  } catch (error) {
+    await fs.rm(temp, { force: true }).catch(() => {});
+    throw error;
+  }
+
+  log?.warnings?.push(`${label} 已轉換為可播放格式：${path.basename(filePath)} → ${path.basename(dest)}`);
+
+  return {
+    rel: normalizeRel(path.relative(DATA_DIR, dest)),
+    hash: sourceHash,
+    copied: true,
+    duplicateFile: false,
+    transcoded: true,
+    filename: path.basename(dest)
+  };
+}
+
+async function storePlayableAssetNamed(filePath, targetSubdir, assetType, config, log, label, desiredTitle = '') {
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (assetType === 'audio' && AIFF_EXT.has(ext)) {
+    return transcodeAssetNamed(filePath, targetSubdir, '.wav', config, log, label || '音訊', desiredTitle, output => [
+      '-y',
+      '-i', filePath,
+      '-vn',
+      '-map_metadata', '0',
+      '-c:a', 'pcm_s16le',
+      output
+    ]);
+  }
+
+  if (assetType === 'video' && VIDEO_TRANSCODE_EXT.has(ext)) {
+    return transcodeAssetNamed(filePath, targetSubdir, '.mp4', config, log, label || 'PV', desiredTitle, output => buildVideoTranscodeArgs(filePath, output, config, log));
+  }
+
+  return copyAssetNamed(filePath, targetSubdir, desiredTitle);
+}
+
 function choosePreferred(list, type, log, groupLabel) {
   if (!list.length) return null;
 
@@ -762,6 +1072,196 @@ async function attachOptionalAsset(track, kind, candidate, log) {
 
   log.updatedTracks.push(`${track.albumTitle || ''} / ${track.title}：已掛載/更新 ${spec.label}`);
   return true;
+}
+
+
+function manualKindLabel(kind) {
+  return ({ audio: '音訊', lrc: 'LRC', video: 'PV', image: 'BG' })[kind] || kind;
+}
+
+function normalizeManualKind(kind, sourcePath = '') {
+  const k = String(kind || '').trim();
+  if (['audio', 'lrc', 'video', 'image'].includes(k)) return k;
+  return classify(sourcePath);
+}
+
+function getManualTargetAlbum(config, albumId, albumTitle) {
+  const id = String(albumId || '').trim();
+  if (id) {
+    const album = config.albums.find(item => item.id === id);
+    if (album) return album;
+  }
+
+  const title = String(albumTitle || DEFAULT_IMPORT_ALBUM_TITLE).trim() || DEFAULT_IMPORT_ALBUM_TITLE;
+  return getAlbum(config, title);
+}
+
+async function stageManualImport(inputPaths) {
+  const { files, skipped } = await collectInputFiles(inputPaths || []);
+  const items = [];
+
+  for (const item of files) {
+    const kind = classify(item.filePath);
+    if (kind === 'unknown') {
+      skipped.push(`不支援的檔案：${path.basename(item.filePath)}`);
+      continue;
+    }
+
+    const ext = path.extname(item.filePath).toLowerCase();
+    const stem = path.basename(item.filePath, path.extname(item.filePath));
+    items.push({
+      id: makeId('stage', item.filePath, String(items.length)),
+      sourcePath: item.filePath,
+      filename: path.basename(item.filePath),
+      stem,
+      ext,
+      kind,
+      title: stem,
+      size: (await fs.stat(item.filePath).catch(() => ({ size: 0 }))).size || 0
+    });
+  }
+
+  return { ok: true, items, skipped };
+}
+
+async function chooseManualImport() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '選擇要手動入庫的資產',
+    properties: ['openFile', 'openDirectory', 'multiSelections'],
+    filters: [
+      { name: 'Media and lyrics', extensions: [...AUDIO_EXT, ...LRC_EXT, ...VIDEO_EXT, ...IMAGE_EXT].map(ext => ext.slice(1)) },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths.length) return { ok: false, canceled: true };
+  return stageManualImport(result.filePaths);
+}
+
+async function importManualAssets(payload = {}) {
+  await ensureDataDirs();
+
+  const config = await loadConfig();
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  const album = getManualTargetAlbum(config, payload.albumId, payload.albumTitle);
+  const log = {
+    addedTracks: [],
+    updatedTracks: [],
+    skippedTracks: [],
+    skippedFiles: [],
+    warnings: [],
+    backgrounds: []
+  };
+
+  for (const rawItem of items) {
+    const sourcePath = path.resolve(String(rawItem.sourcePath || ''));
+    if (!sourcePath || !(await exists(sourcePath))) {
+      log.skippedFiles.push(`來源不存在：${sourcePath}`);
+      continue;
+    }
+
+    const kind = normalizeManualKind(rawItem.kind, sourcePath);
+    if (kind === 'unknown') {
+      log.skippedFiles.push(`不支援的檔案：${path.basename(sourcePath)}`);
+      continue;
+    }
+
+    const title = String(rawItem.title || path.basename(sourcePath, path.extname(sourcePath))).trim() || path.basename(sourcePath, path.extname(sourcePath));
+    const groupLabel = `${album.title} / ${title}`;
+
+    try {
+      if (kind === 'image') {
+        const copied = await copyAssetNamed(sourcePath, 'bg-image', title);
+        const existsInConfig = config.backgrounds.some(bg => bg.hash === copied.hash || bg.path === copied.rel);
+        if (!existsInConfig) {
+          config.backgrounds.push({ path: copied.rel, hash: copied.hash, importedAt: new Date().toISOString() });
+          log.backgrounds.push(`${copied.copied ? '新增' : '引用既有'}背景圖：${copied.filename}`);
+        } else {
+          log.skippedFiles.push(`背景圖重複，略過：${copied.filename}`);
+        }
+        continue;
+      }
+
+      if (kind === 'audio') {
+        const copied = await storePlayableAssetNamed(sourcePath, path.join('music', 'data'), 'audio', config, log, '音訊', title);
+        const existing = findTrackByAlbumAndTitle(config, album.id, title);
+        if (existing) {
+          log.skippedTracks.push(`目標專輯已有同名歌曲，未覆蓋音訊：${groupLabel}`);
+          continue;
+        }
+
+        const track = {
+          id: makeId('track', album.id, title, copied.hash),
+          title,
+          artist: album.artist || '',
+          albumId: album.id,
+          albumTitle: album.title,
+          year: album.year || '',
+          musicpath: copied.rel,
+          lyricpath: '',
+          videopath: '',
+          PureMusic: true,
+          hashes: { music: copied.hash },
+          sourceFiles: { music: path.basename(sourcePath) },
+          importedAt: new Date().toISOString(),
+          updatedAt: ''
+        };
+        config.tracks.push(track);
+        log.addedTracks.push(groupLabel);
+        continue;
+      }
+
+      if (kind === 'lrc') {
+        const copied = await copyAssetNamed(sourcePath, path.join('music', 'lyrics'), title, '.lrc');
+        const track = findTrackByAlbumAndTitle(config, album.id, title);
+        addResourceIndexEntry(config, 'lyric', copied.rel, { hash: copied.hash, filename: copied.filename, importedAt: new Date().toISOString(), exists: true });
+        if (track) {
+          track.lyricpath = copied.rel;
+          track.PureMusic = false;
+          track.hashes ||= {};
+          track.sourceFiles ||= {};
+          track.hashes.lyric = copied.hash;
+          track.sourceFiles.lyric = path.basename(sourcePath);
+          track.updatedAt = new Date().toISOString();
+          log.updatedTracks.push(`${groupLabel}：已綁定 LRC ${copied.filename}`);
+        } else {
+          log.updatedTracks.push(`${groupLabel}：已作為獨立 LRC 入庫，稍後可在「綁定管理」綁定歌曲：${copied.filename}`);
+        }
+        continue;
+      }
+
+      if (kind === 'video') {
+        const copied = await storePlayableAssetNamed(sourcePath, 'video', 'video', config, log, 'PV', title);
+        const track = findTrackByAlbumAndTitle(config, album.id, title);
+        addResourceIndexEntry(config, 'video', copied.rel, { hash: copied.hash, filename: copied.filename, importedAt: new Date().toISOString(), exists: true });
+        if (track) {
+          track.videopath = copied.rel;
+          track.hashes ||= {};
+          track.sourceFiles ||= {};
+          track.hashes.video = copied.hash;
+          track.sourceFiles.video = path.basename(sourcePath);
+          track.updatedAt = new Date().toISOString();
+          log.updatedTracks.push(`${groupLabel}：已綁定 PV ${copied.filename}`);
+        } else {
+          log.updatedTracks.push(`${groupLabel}：已作為獨立 PV 入庫，稍後可在「綁定管理」綁定歌曲：${copied.filename}`);
+        }
+      }
+    } catch (error) {
+      log.warnings.push(`${manualKindLabel(kind)} 入庫失敗：${path.basename(sourcePath)}：${error.message}`);
+    }
+  }
+
+  const saved = await saveConfig(config);
+  return {
+    ok: true,
+    dataDir: DATA_DIR,
+    counts: {
+      albums: saved.albums.length,
+      tracks: saved.tracks.length,
+      backgrounds: saved.backgrounds.length
+    },
+    log
+  };
 }
 
 async function importAssets(inputPaths) {
@@ -940,15 +1440,6 @@ async function listDiskBackgrounds() {
 async function getLibrary() {
   const config = await loadConfig();
 
-  const diskBgs = await listDiskBackgrounds();
-  const bgSet = new Set(config.backgrounds.map(bg => bg.path));
-
-  for (const bg of diskBgs) {
-    if (!bgSet.has(bg)) {
-      config.backgrounds.push({ path: bg, hash: '', importedAt: '' });
-    }
-  }
-
   const albumsById = Object.fromEntries(config.albums.map(album => [album.id, album]));
   const tracks = config.tracks.map(track => {
     const album = albumsById[track.albumId] || {};
@@ -966,10 +1457,14 @@ async function getLibrary() {
     config,
     albums: config.albums,
     tracks,
-    videos: await listVideoLibrary(config),
-    lyrics: await listLyricLibrary(config),
-    dataFiles: await listDataFiles(config),
-    bgImages: config.backgrounds.map(bg => bg.path)
+    bgImages: config.backgrounds.map(bg => bg.path),
+    resourceCounts: config.resourceCounts || config.resourceIndex?.counts || { lyrics: 0, videos: 0 },
+    lazyResources: true,
+    resourceHints: {
+      videos: 'call pvs:list when PV binding table is opened',
+      lyrics: 'call lrcs:list when LRC binding table is opened',
+      dataFiles: 'call data:listFiles when delete manager is opened'
+    }
   };
 }
 
@@ -985,13 +1480,11 @@ function assertInsideDataDir(relPath) {
 }
 
 
-async function listVideoLibrary(configInput = null) {
+
+async function listVideoLibrary(configInput = null, options = {}) {
   const config = configInput || await loadConfig();
-  const videoDir = path.join(DATA_DIR, 'video');
-
-  if (!(await exists(videoDir))) return [];
-
-  const all = await listFilesDeep(videoDir).catch(() => []);
+  const scanDisk = Boolean(options.scanDisk);
+  const syncYaml = Boolean(options.syncYaml);
   const usedByPath = new Map();
 
   for (const track of config.tracks || []) {
@@ -1001,37 +1494,61 @@ async function listVideoLibrary(configInput = null) {
     usedByPath.get(rel).push({ id: track.id, title: track.title, albumId: track.albumId, albumTitle: track.albumTitle });
   }
 
-  const videos = [];
+  const byPath = new Map();
 
-  for (const filePath of all) {
-    if (!VIDEO_EXT.has(path.extname(filePath).toLowerCase())) continue;
-
-    const rel = normalizeRel(path.relative(DATA_DIR, filePath));
-    let hash = '';
-    try {
-      hash = await hashFile(filePath);
-    } catch {}
-
-    videos.push({
-      path: rel,
-      filename: path.basename(filePath),
-      stem: path.basename(filePath, path.extname(filePath)),
-      hash,
-      usedBy: usedByPath.get(rel) || []
+  function upsertVideoRecord(record) {
+    const normalized = normalizeResourceRecord(record, 'video');
+    if (!normalized) return;
+    const current = byPath.get(normalized.path) || {};
+    byPath.set(normalized.path, {
+      ...mergeResourceRecord(current, normalized),
+      usedBy: usedByPath.get(normalized.path) || current.usedBy || []
     });
   }
 
-  return videos.sort((a, b) => a.filename.localeCompare(b.filename, 'zh-Hant'));
+  // YAML first: use resourceIndex.videos saved in config.yaml before any disk scan.
+  for (const record of config.resourceIndex?.videos || []) upsertVideoRecord(record);
+
+  // Always include currently bound PV references from tracks, even if resourceIndex was produced by an older version.
+  for (const rel of usedByPath.keys()) upsertVideoRecord({ path: rel });
+
+  if (scanDisk || byPath.size === 0) {
+    const videoDir = path.join(DATA_DIR, 'video');
+    if (await exists(videoDir)) {
+      const all = await listFilesDeep(videoDir).catch(() => []);
+      for (const filePath of all) {
+        if (!VIDEO_EXT.has(path.extname(filePath).toLowerCase())) continue;
+        const rel = normalizeRel(path.relative(DATA_DIR, filePath));
+        const stat = await fs.stat(filePath).catch(() => null);
+        upsertVideoRecord({ path: rel, exists: true, updatedAt: stat ? stat.mtime.toISOString() : '' });
+      }
+    }
+  }
+
+  const videos = Array.from(byPath.values()).map(item => ({
+    path: item.path,
+    filename: item.filename || path.basename(item.path),
+    stem: item.stem || path.basename(item.path, path.extname(item.path)),
+    hash: item.hash || '',
+    exists: item.exists,
+    importedAt: item.importedAt || '',
+    updatedAt: item.updatedAt || '',
+    usedBy: usedByPath.get(item.path) || []
+  })).sort((a, b) => a.filename.localeCompare(b.filename, 'zh-Hant'));
+
+  if (syncYaml) {
+    config.resourceIndex ||= { version: 1, updatedAt: '', counts: {}, lyrics: [], videos: [] };
+    config.resourceIndex.videos = videos.map(({ usedBy, ...item }) => item);
+    await saveConfig(config);
+  }
+
+  return videos;
 }
 
-
-async function listLyricLibrary(configInput = null) {
+async function listLyricLibrary(configInput = null, options = {}) {
   const config = configInput || await loadConfig();
-  const lyricDir = path.join(DATA_DIR, 'music', 'lyrics');
-
-  if (!(await exists(lyricDir))) return [];
-
-  const all = await listFilesDeep(lyricDir).catch(() => []);
+  const scanDisk = Boolean(options.scanDisk);
+  const syncYaml = Boolean(options.syncYaml);
   const usedByPath = new Map();
 
   for (const track of config.tracks || []) {
@@ -1041,28 +1558,66 @@ async function listLyricLibrary(configInput = null) {
     usedByPath.get(rel).push({ id: track.id, title: track.title, albumId: track.albumId, albumTitle: track.albumTitle });
   }
 
-  const lyrics = [];
+  const byPath = new Map();
 
-  for (const filePath of all) {
-    if (!LRC_EXT.has(path.extname(filePath).toLowerCase())) continue;
-
-    const rel = normalizeRel(path.relative(DATA_DIR, filePath));
-    let hash = '';
-    try {
-      hash = await hashFile(filePath);
-    } catch {}
-
-    lyrics.push({
-      path: rel,
-      filename: path.basename(filePath),
-      stem: path.basename(filePath, path.extname(filePath)),
-      hash,
-      usedBy: usedByPath.get(rel) || []
+  function upsertLyricRecord(record) {
+    const normalized = normalizeResourceRecord(record, 'lyric');
+    if (!normalized) return;
+    const current = byPath.get(normalized.path) || {};
+    byPath.set(normalized.path, {
+      ...mergeResourceRecord(current, normalized),
+      usedBy: usedByPath.get(normalized.path) || current.usedBy || []
     });
   }
 
-  return lyrics.sort((a, b) => a.filename.localeCompare(b.filename, 'zh-Hant'));
+  // YAML first: use resourceIndex.lyrics saved in config.yaml before any disk scan.
+  for (const record of config.resourceIndex?.lyrics || []) upsertLyricRecord(record);
+
+  // Always include currently bound LRC references from tracks, even if resourceIndex was produced by an older version.
+  for (const rel of usedByPath.keys()) upsertLyricRecord({ path: rel });
+
+  if (scanDisk || byPath.size === 0) {
+    const lyricDir = path.join(DATA_DIR, 'music', 'lyrics');
+    if (await exists(lyricDir)) {
+      const all = await listFilesDeep(lyricDir).catch(() => []);
+      for (const filePath of all) {
+        if (!LRC_EXT.has(path.extname(filePath).toLowerCase())) continue;
+        const rel = normalizeRel(path.relative(DATA_DIR, filePath));
+        const stat = await fs.stat(filePath).catch(() => null);
+        upsertLyricRecord({ path: rel, exists: true, updatedAt: stat ? stat.mtime.toISOString() : '' });
+      }
+    }
+  }
+
+  const lyrics = Array.from(byPath.values()).map(item => ({
+    path: item.path,
+    filename: item.filename || path.basename(item.path),
+    stem: item.stem || path.basename(item.path, path.extname(item.path)),
+    hash: item.hash || '',
+    exists: item.exists,
+    importedAt: item.importAt || item.importedAt || '',
+    updatedAt: item.updatedAt || '',
+    usedBy: usedByPath.get(item.path) || []
+  })).sort((a, b) => a.filename.localeCompare(b.filename, 'zh-Hant'));
+
+  if (syncYaml) {
+    config.resourceIndex ||= { version: 1, updatedAt: '', counts: {}, lyrics: [], videos: [] };
+    config.resourceIndex.lyrics = lyrics.map(({ usedBy, ...item }) => item);
+    await saveConfig(config);
+  }
+
+  return lyrics;
 }
+
+async function refreshResourceIndex() {
+  const config = await loadConfig();
+  await listLyricLibrary(config, { scanDisk: true, syncYaml: true });
+  const refreshed = await loadConfig();
+  await listVideoLibrary(refreshed, { scanDisk: true, syncYaml: true });
+  const finalConfig = await loadConfig();
+  return { ok: true, resourceCounts: finalConfig.resourceCounts || finalConfig.resourceIndex?.counts || {}, resourceIndex: finalConfig.resourceIndex };
+}
+
 
 function fileCategory(relPath) {
   const rel = normalizeRel(relPath);
@@ -1130,6 +1685,7 @@ async function listDataFiles(configInput = null) {
 
 async function importLrcLibrary(inputPaths) {
   await ensureDataDirs();
+  const config = await loadConfig();
 
   const { files, skipped } = await collectInputFiles(inputPaths || []);
   const log = {
@@ -1146,6 +1702,7 @@ async function importLrcLibrary(inputPaths) {
 
     try {
       const copied = await copyAsset(item.filePath, path.join('music', 'lyrics'));
+      addResourceIndexEntry(config, 'lyric', copied.rel, { hash: copied.hash, filename: copied.filename, importedAt: new Date().toISOString(), exists: true });
       if (copied.duplicateFile) {
         log.skipped.push(`LRC 已存在，略過複製：${copied.filename}`);
       } else {
@@ -1156,6 +1713,7 @@ async function importLrcLibrary(inputPaths) {
     }
   }
 
+  await saveConfig(config);
   return { ok: true, log, lyrics: await listLyricLibrary() };
 }
 
@@ -1198,6 +1756,7 @@ async function importPvLibrary(inputPaths) {
       continue;
     }
 
+    addResourceIndexEntry(config, 'video', copied.rel, { hash: copied.hash, filename: copied.filename, importedAt: new Date().toISOString(), exists: true });
     if (copied.duplicateFile) {
       log.skipped.push(`PV 已存在，略過複製：${copied.filename}`);
     } else {
@@ -1205,6 +1764,7 @@ async function importPvLibrary(inputPaths) {
     }
   }
 
+  await saveConfig(config);
   return { ok: true, log, videos: await listVideoLibrary() };
 }
 
@@ -1277,6 +1837,7 @@ async function bindPvToTrack({ trackId, videoPath }) {
   if (!(await exists(abs))) return { ok: false, error: `PV 檔案不存在：${rel}` };
   if (!VIDEO_EXT.has(path.extname(abs).toLowerCase())) return { ok: false, error: '選擇的檔案不是支援的 PV 格式' };
 
+  addResourceIndexEntry(config, 'video', rel, { hash: await hashFile(abs).catch(() => ''), filename: path.basename(abs), exists: true, updatedAt: new Date().toISOString() });
   track.videopath = rel;
   track.hashes ||= {};
   track.sourceFiles ||= {};
@@ -1316,6 +1877,7 @@ async function bindLrcToTrack({ trackId, lyricPath }) {
   if (!(await exists(abs))) return { ok: false, error: `LRC 檔案不存在：${rel}` };
   if (!LRC_EXT.has(path.extname(abs).toLowerCase())) return { ok: false, error: '選擇的檔案不是 LRC' };
 
+  addResourceIndexEntry(config, 'lyric', rel, { hash: await hashFile(abs).catch(() => ''), filename: path.basename(abs), exists: true, updatedAt: new Date().toISOString() });
   track.lyricpath = rel;
   track.PureMusic = false;
   track.hashes ||= {};
@@ -1389,6 +1951,7 @@ async function autoBindLrcsByName() {
     const lyric = candidates[0];
     const abs = assertInsideDataDir(lyric.path);
 
+    addResourceIndexEntry(config, 'lyric', lyric.path, { hash: lyric.hash || '', filename: lyric.filename, exists: lyric.exists, updatedAt: new Date().toISOString() });
     track.lyricpath = lyric.path;
     track.PureMusic = false;
     track.hashes ||= {};
@@ -1450,6 +2013,7 @@ async function autoBindPvsByName() {
     const video = candidates[0];
     const abs = assertInsideDataDir(video.path);
 
+    addResourceIndexEntry(config, 'video', video.path, { hash: video.hash || '', filename: video.filename, exists: video.exists, updatedAt: new Date().toISOString() });
     track.videopath = video.path;
     track.hashes ||= {};
     track.sourceFiles ||= {};
@@ -1717,6 +2281,8 @@ async function deleteDataFile(payload) {
     }
   }
 
+  removeResourceIndexEntry(config, rel);
+
   const oldBg = config.backgrounds.length;
   config.backgrounds = config.backgrounds.filter(bg => normalizeRel(bg.path) !== rel);
   if (config.backgrounds.length !== oldBg) log.cleared.push(`已移除背景圖記錄：${rel}`);
@@ -1778,6 +2344,7 @@ async function convertExistingMedia() {
 
     try {
       const converted = await storePlayableAsset(filePath, 'video', 'video', config, log, 'PV');
+      addResourceIndexEntry(config, 'video', converted.rel, { hash: converted.hash, filename: converted.filename, exists: true, updatedAt: new Date().toISOString() });
       log.converted.push(`獨立 PV：${path.basename(filePath)} → ${converted.filename}`);
     } catch (error) {
       log.warnings.push(`獨立 PV 轉換失敗：${path.basename(filePath)}：${error.message}`);
@@ -1861,6 +2428,9 @@ app.on('activate', () => {
 ipcMain.handle('library:get', getLibrary);
 
 ipcMain.handle('assets:import', async (_event, paths) => importAssets(paths));
+ipcMain.handle('assets:stageManualImport', async (_event, paths) => stageManualImport(paths));
+ipcMain.handle('assets:chooseManualImport', chooseManualImport);
+ipcMain.handle('assets:importManual', async (_event, payload) => importManualAssets(payload));
 
 ipcMain.handle('assets:chooseAndImport', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -1930,4 +2500,5 @@ ipcMain.handle('track:unbindLrc', (_event, trackId) => unbindLrcFromTrack(trackI
 ipcMain.handle('track:delete', (_event, payload) => deleteTrack(payload));
 ipcMain.handle('data:listFiles', async () => ({ ok: true, files: await listDataFiles() }));
 ipcMain.handle('data:deleteFile', (_event, payload) => deleteDataFile(payload));
+ipcMain.handle('resources:refreshIndex', refreshResourceIndex);
 

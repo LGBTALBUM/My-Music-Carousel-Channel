@@ -180,7 +180,11 @@ function syncLyrics() {
 
   if (!activeLine || !wrap) return;
 
-  const target = Math.max(0, wrap.clientHeight * 0.48 - activeLine.offsetTop);
+  const lineCenter = activeLine.offsetTop + activeLine.offsetHeight / 2;
+  const desired = wrap.clientHeight * 0.48 - lineCenter;
+  const maxUp = Math.min(0, wrap.clientHeight - lyricInner.scrollHeight - 24);
+  const target = Math.max(maxUp, Math.min(0, desired));
+
   lyricInner.style.transform = `translateY(${target}px)`;
 }
 
@@ -204,6 +208,7 @@ async function playAudioWithBackground(track) {
   bgTimer = setInterval(() => rotateBg(), 40000);
 
   await loadLyrics(track);
+  syncLyrics();
 
   audio.src = await assetUrl(track.musicpath);
   audio.ontimeupdate = syncLyrics;

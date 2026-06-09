@@ -678,3 +678,45 @@ body.pv-mode #overlay {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 }
+
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 14px;
+}
+
+.search-input {
+  width: min(100%, 520px);
+  min-width: 240px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: rgba(128, 187, 255, 0.65);
+  box-shadow: 0 0 0 3px rgba(92, 155, 255, 0.16);
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.search-meta {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.inline-form .grow {
+  flex: 1 1 320px;
+}
+
+.inline-form .grow .search-input {
+  width: 100%;
+}

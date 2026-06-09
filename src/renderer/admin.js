@@ -16,6 +16,77 @@ function escapeHtml(s) {
   }[ch]));
 }
 
+
+function normalizeSearchText(s) {
+  return String(s ?? '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeRegExp(s) {
+  return String(s).replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+}
+
+function wildcardToRegExp(pattern) {
+  const escaped = String(pattern)
+    .split('')
+    .map(ch => ch === '*' ? '.*' : ch === '?' ? '.' : escapeRegExp(ch))
+    .join('');
+  return new RegExp(escaped, 'i');
+}
+
+function fuzzySequenceMatch(text, token) {
+  let cursor = 0;
+  for (const ch of token) {
+    cursor = text.indexOf(ch, cursor);
+    if (cursor === -1) return false;
+    cursor += 1;
+  }
+  return true;
+}
+
+function createSearchMatcher(query) {
+  const raw = String(query || '').trim();
+  if (!raw) return () => true;
+
+  const normalizedRaw = normalizeSearchText(raw);
+  const hasWildcard = /[*?]/.test(normalizedRaw);
+
+  if (hasWildcard) {
+    const patterns = normalizedRaw.split(/\s+/).filter(Boolean).map(wildcardToRegExp);
+    return value => {
+      const text = normalizeSearchText(value);
+      return patterns.every(pattern => pattern.test(text));
+    };
+  }
+
+  const tokens = normalizedRaw.split(/\s+/).filter(Boolean);
+  return value => {
+    const text = normalizeSearchText(value);
+    return tokens.every(token => text.includes(token) || fuzzySequenceMatch(text, token));
+  };
+}
+
+function searchValue(id) {
+  return document.getElementById(id)?.value || '';
+}
+
+function searchableText(parts) {
+  return parts.flatMap(part => {
+    if (Array.isArray(part)) return part;
+    if (part && typeof part === 'object') return Object.values(part);
+    return [part];
+  }).join(' ');
+}
+
+function updateSearchCount(id, shown, total, label = '項') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = total ? `顯示 ${shown} / ${total} ${label}` : '';
+}
+
 function formatImportResult(result) {
   if (!result) return '';
   if (result.canceled) return '已取消。';
@@ -295,11 +366,28 @@ function albumOptions(includeAll = false) {
 
 function renderAlbumTable() {
   const tbody = $('#albumTable tbody');
-  const albums = library?.albums || [];
+  const allAlbums = library?.albums || [];
+  const matcher = createSearchMatcher(searchValue('albumSearch'));
+  const albums = allAlbums.filter(album => matcher(searchableText([
+    album.id,
+    album.title,
+    album.artist,
+    album.year,
+    album.description,
+    trackCountByAlbum(album.id)
+  ])));
+
+  updateSearchCount('albumSearchCount', albums.length, allAlbums.length, '張');
+
   tbody.innerHTML = '';
 
-  if (!albums.length) {
+  if (!allAlbums.length) {
     tbody.innerHTML = '<tr><td colspan="7" class="muted">目前沒有專輯。拖入資產或新增專輯後會顯示在這裡。</td></tr>';
+    return;
+  }
+
+  if (!albums.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="muted">沒有符合搜尋條件的專輯。</td></tr>';
     return;
   }
 
@@ -334,15 +422,33 @@ function renderTrackTable() {
   const tbody = $('#trackTable tbody');
   tbody.innerHTML = '';
 
-  const tracks = (library?.tracks || []).filter(t => t.albumId === selectedAlbumId);
+  const allTracks = (library?.tracks || []).filter(t => t.albumId === selectedAlbumId);
+  const matcher = createSearchMatcher(searchValue('albumTrackSearch'));
+  const tracks = allTracks.filter(track => matcher(searchableText([
+    track.id,
+    track.title,
+    track.artist,
+    getAlbumTitle(track.albumId),
+    track.musicpath,
+    track.lyricpath,
+    track.videopath,
+    track.PureMusic ? 'PureMusic 純音樂' : 'vocal 歌曲'
+  ])));
+
+  updateSearchCount('albumTrackSearchCount', tracks.length, allTracks.length, '首');
 
   if (!selectedAlbumId) {
     tbody.innerHTML = '<tr><td colspan="5" class="muted">尚未選擇專輯。</td></tr>';
     return;
   }
 
-  if (!tracks.length) {
+  if (!allTracks.length) {
     tbody.innerHTML = '<tr><td colspan="5" class="muted">這張專輯目前沒有作品。</td></tr>';
+    return;
+  }
+
+  if (!tracks.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted">沒有符合搜尋條件的作品。</td></tr>';
     return;
   }
 
@@ -368,8 +474,19 @@ function renderAlbums() {
 
 function getFilteredBindTracks() {
   const filter = $('#bindFilterAlbum')?.value || '__all__';
+  const matcher = createSearchMatcher(searchValue('bindTrackSearch'));
   const tracks = library?.tracks || [];
-  return filter === '__all__' ? tracks : tracks.filter(track => track.albumId === filter);
+  const byAlbum = filter === '__all__' ? tracks : tracks.filter(track => track.albumId === filter);
+  return byAlbum.filter(track => matcher(searchableText([
+    track.id,
+    track.title,
+    track.artist,
+    getAlbumTitle(track.albumId),
+    track.musicpath,
+    track.lyricpath,
+    track.videopath,
+    track.PureMusic ? 'PureMusic 純音樂' : 'vocal 歌曲'
+  ])));
 }
 
 function renderBindControls() {
@@ -387,7 +504,9 @@ function renderBindControls() {
 
 function renderBindTrackTable() {
   const tbody = $('#bindTrackTable tbody');
+  const allTracks = library?.tracks || [];
   const tracks = getFilteredBindTracks();
+  updateSearchCount('bindTrackSearchCount', tracks.length, allTracks.length, '首');
   tbody.innerHTML = '';
 
   if (!tracks.length) {
@@ -439,14 +558,30 @@ function renderPvTable() {
 
   if (!Array.isArray(library?.videos)) {
     tbody.innerHTML = '<tr><td colspan="3" class="muted">PV 池尚未載入。MMCC 現在只先讀 config.yaml，進入綁定頁時才掃描 PV 檔案。</td></tr>';
+    updateSearchCount('pvSearchCount', 0, 0, '個');
     return;
   }
 
-  const videos = library.videos || [];
+  const allVideos = library.videos || [];
+  const matcher = createSearchMatcher(searchValue('pvSearch'));
+  const videos = allVideos.filter(video => matcher(searchableText([
+    video.filename,
+    video.path,
+    video.hash,
+    video.exists ? 'exists 存在' : 'missing 遺失',
+    ...(video.usedBy || []).map(item => `${item.title} ${getAlbumTitle(item.albumId)} ${item.id}`)
+  ])));
+
+  updateSearchCount('pvSearchCount', videos.length, allVideos.length, '個');
   tbody.innerHTML = '';
 
-  if (!videos.length) {
+  if (!allVideos.length) {
     tbody.innerHTML = '<tr><td colspan="3" class="muted">PV 池目前是空的。請先入庫 PV。</td></tr>';
+    return;
+  }
+
+  if (!videos.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="muted">沒有符合搜尋條件的 PV。</td></tr>';
     return;
   }
 
@@ -495,14 +630,30 @@ function renderLrcTable() {
 
   if (!Array.isArray(library?.lyrics)) {
     tbody.innerHTML = '<tr><td colspan="3" class="muted">LRC 池尚未載入。MMCC 現在只先讀 config.yaml，進入綁定頁時才掃描 LRC 檔案。</td></tr>';
+    updateSearchCount('lrcSearchCount', 0, 0, '個');
     return;
   }
 
-  const lyrics = library.lyrics || [];
+  const allLyrics = library.lyrics || [];
+  const matcher = createSearchMatcher(searchValue('lrcSearch'));
+  const lyrics = allLyrics.filter(lyric => matcher(searchableText([
+    lyric.filename,
+    lyric.path,
+    lyric.hash,
+    lyric.exists ? 'exists 存在' : 'missing 遺失',
+    ...(lyric.usedBy || []).map(item => `${item.title} ${getAlbumTitle(item.albumId)} ${item.id}`)
+  ])));
+
+  updateSearchCount('lrcSearchCount', lyrics.length, allLyrics.length, '個');
   tbody.innerHTML = '';
 
-  if (!lyrics.length) {
+  if (!allLyrics.length) {
     tbody.innerHTML = '<tr><td colspan="3" class="muted">LRC 池目前是空的。請先入庫 LRC。</td></tr>';
+    return;
+  }
+
+  if (!lyrics.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="muted">沒有符合搜尋條件的 LRC。</td></tr>';
     return;
   }
 
@@ -558,11 +709,29 @@ function renderDeleteTrackTable() {
   const tbody = $('#deleteTrackTable tbody');
   if (!tbody) return;
 
-  const tracks = library?.tracks || [];
+  const allTracks = library?.tracks || [];
+  const matcher = createSearchMatcher(searchValue('deleteTrackSearch'));
+  const tracks = allTracks.filter(track => matcher(searchableText([
+    track.id,
+    track.title,
+    track.artist,
+    getAlbumTitle(track.albumId),
+    track.musicpath,
+    track.lyricpath,
+    track.videopath,
+    track.PureMusic ? 'PureMusic 純音樂' : 'vocal 歌曲'
+  ])));
+
+  updateSearchCount('deleteTrackSearchCount', tracks.length, allTracks.length, '首');
   tbody.innerHTML = '';
 
-  if (!tracks.length) {
+  if (!allTracks.length) {
     tbody.innerHTML = '<tr><td colspan="6" class="muted">目前沒有歌曲。</td></tr>';
+    return;
+  }
+
+  if (!tracks.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">沒有符合搜尋條件的歌曲。</td></tr>';
     return;
   }
 
@@ -589,15 +758,32 @@ function renderDataFileTable() {
 
   if (!Array.isArray(library?.dataFiles)) {
     tbody.innerHTML = '<tr><td colspan="5" class="muted">DATA 檔案清單尚未載入。MMCC 現在只先讀 config.yaml，進入刪除頁時才掃描 /DATA。</td></tr>';
+    updateSearchCount('deleteFileSearchCount', 0, 0, '個');
     return;
   }
 
   const filter = $('#deleteFileFilter')?.value || '__all__';
-  const files = (library.dataFiles || []).filter(file => filter === '__all__' || file.category === filter);
+  const matcher = createSearchMatcher(searchValue('deleteFileSearch'));
+  const byType = (library.dataFiles || []).filter(file => filter === '__all__' || file.category === filter);
+  const files = byType.filter(file => matcher(searchableText([
+    file.category,
+    categoryLabel(file.category),
+    file.filename,
+    file.path,
+    file.size,
+    ...(file.usedBy || []).map(item => `${item.type} ${item.title || ''} ${item.id || ''}`)
+  ])));
+
+  updateSearchCount('deleteFileSearchCount', files.length, byType.length, '個');
   tbody.innerHTML = '';
 
-  if (!files.length) {
+  if (!byType.length) {
     tbody.innerHTML = '<tr><td colspan="5" class="muted">沒有可顯示的 data 檔案。</td></tr>';
+    return;
+  }
+
+  if (!files.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted">沒有符合搜尋條件的 data 檔案。</td></tr>';
     return;
   }
 
@@ -999,6 +1185,29 @@ function bindDeleteManager() {
   });
 }
 
+
+function bindSearchControls() {
+  const bindings = [
+    ['albumSearch', renderAlbumTable],
+    ['albumTrackSearch', renderTrackTable],
+    ['bindTrackSearch', () => {
+      selectedTrackIds = new Set([...selectedTrackIds].filter(id => getFilteredBindTracks().some(track => track.id === id)));
+      renderBindTrackTable();
+    }],
+    ['lrcSearch', renderLrcTable],
+    ['pvSearch', renderPvTable],
+    ['deleteTrackSearch', renderDeleteTrackTable],
+    ['deleteFileSearch', renderDataFileTable]
+  ];
+
+  for (const [id, render] of bindings) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.addEventListener('input', render);
+    el.addEventListener('search', render);
+  }
+}
+
 function bindSettings() {
   async function saveAndMaybeLaunch(launch = false) {
     const result = await window.mmcc.saveSettings(currentSettingsFromForm());
@@ -1069,6 +1278,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindAlbumManager();
   bindBindingManager();
   bindDeleteManager();
+  bindSearchControls();
   bindSettings();
   await loadLibrary();
 });

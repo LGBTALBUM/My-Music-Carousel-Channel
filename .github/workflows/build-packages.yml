@@ -43,6 +43,7 @@ jobs:
               dist/*.deb
 
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder

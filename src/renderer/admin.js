@@ -288,6 +288,58 @@ function formatMediaConvertResult(result) {
   return lines.length ? lines.join('\n') : '沒有需要轉換的既有媒體。';
 }
 
+
+async function refreshAudioOutputDevices(preferredDeviceId = '') {
+  const select = document.getElementById('audioOutputDeviceId');
+  if (!select) return;
+
+  const current = preferredDeviceId || select.value || 'default';
+  const savedLabel = library?.config?.settings?.audioOutputDeviceLabel || '';
+
+  select.innerHTML = '<option value="default">系統預設輸出</option>';
+
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    const option = document.createElement('option');
+    option.value = current;
+    option.textContent = savedLabel || current || '目前瀏覽器不支援列出聲卡';
+    option.selected = current !== 'default';
+    select.appendChild(option);
+    return;
+  }
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const outputs = devices.filter(device => device.kind === 'audiooutput');
+
+    for (const device of outputs) {
+      const option = document.createElement('option');
+      option.value = device.deviceId || 'default';
+      option.textContent = device.label || (device.deviceId === 'default' ? '系統預設輸出' : `音訊輸出 ${select.options.length}`);
+      select.appendChild(option);
+    }
+
+    if (current && !Array.from(select.options).some(option => option.value === current)) {
+      const option = document.createElement('option');
+      option.value = current;
+      option.textContent = savedLabel ? `${savedLabel}（目前未偵測到）` : `${current}（目前未偵測到）`;
+      select.appendChild(option);
+    }
+
+    select.value = current || 'default';
+  } catch (error) {
+    const option = document.createElement('option');
+    option.value = current || 'default';
+    option.textContent = savedLabel || `聲卡列表讀取失敗：${error.message}`;
+    option.selected = true;
+    select.appendChild(option);
+  }
+}
+
+function getSelectedAudioOutputLabel() {
+  const select = document.getElementById('audioOutputDeviceId');
+  return select?.selectedOptions?.[0]?.textContent || '';
+}
+
 function currentSettingsFromForm() {
   return {
     fontFamily: $('#fontFamily').value.trim(),
@@ -296,7 +348,10 @@ function currentSettingsFromForm() {
     bgMode: $('#bgMode').value,
     ffmpegPath: $('#ffmpegPath')?.value.trim() || '',
     transcodeGpuMode: $('#transcodeGpuMode')?.value || 'auto',
-    playbackGpu: $('#playbackGpu') ? $('#playbackGpu').checked : true
+    playbackGpu: $('#playbackGpu') ? $('#playbackGpu').checked : true,
+    audioOutputDeviceId: $('#audioOutputDeviceId')?.value || 'default',
+    audioOutputDeviceLabel: getSelectedAudioOutputLabel(),
+    playerFullscreenWin: $('#playerFullscreenWin')?.checked === true
   };
 }
 
@@ -309,6 +364,9 @@ function fillSettingsForm() {
   if ($('#ffmpegPath')) $('#ffmpegPath').value = settings.ffmpegPath || '';
   if ($('#transcodeGpuMode')) $('#transcodeGpuMode').value = settings.transcodeGpuMode || 'auto';
   if ($('#playbackGpu')) $('#playbackGpu').checked = settings.playbackGpu !== false;
+
+  if ($('#playerFullscreenWin')) $('#playerFullscreenWin').checked = settings.playerFullscreenWin === true;
+  refreshAudioOutputDevices(settings.audioOutputDeviceId || 'default');
   fillDataRootForm();
 }
 
@@ -1209,6 +1267,16 @@ function bindSearchControls() {
 }
 
 function bindSettings() {
+  $('#refreshAudioDevicesBtn')?.addEventListener('click', () => {
+    refreshAudioOutputDevices($('#audioOutputDeviceId')?.value || library?.config?.settings?.audioOutputDeviceId || 'default');
+  });
+
+  if (navigator.mediaDevices?.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', () => {
+      refreshAudioOutputDevices($('#audioOutputDeviceId')?.value || library?.config?.settings?.audioOutputDeviceId || 'default');
+    });
+  }
+
   async function saveAndMaybeLaunch(launch = false) {
     const result = await window.mmcc.saveSettings(currentSettingsFromForm());
     $('#settingsLog').textContent = result.ok ? '設定已保存。' : `設定保存失敗：${result.error || 'unknown error'}`;

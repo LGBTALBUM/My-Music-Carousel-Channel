@@ -51,6 +51,8 @@ contextBridge.exposeInMainWorld('mmcc', {
 
   exportDataZip: () => ipcRenderer.invoke('data:exportZip'),
   launchPlayer: () => ipcRenderer.invoke('player:launch'),
+  setPlayerFullscreen: enabled => ipcRenderer.invoke('player:setFullscreen', enabled),
+  togglePlayerFullscreen: () => ipcRenderer.invoke('player:toggleFullscreen'),
 
   dataFileUrl: relPath => ipcRenderer.invoke('data:fileUrl', relPath),
   readDataText: relPath => ipcRenderer.invoke('data:readText', relPath)

@@ -443,6 +443,16 @@
         <label class="check">
           <input type="checkbox" id="playbackGpu"> 播放時啟用 Chromium GPU
         </label>
+        <label>聲音輸出
+          <select id="audioOutputDeviceId">
+            <option value="default">系統預設輸出</option>
+          </select>
+        </label>
+        <button id="refreshAudioDevicesBtn" type="button">重新掃描聲卡</button>
+        <input id="audioOutputDeviceLabel" type="hidden">
+        <label class="check">
+          <input type="checkbox" id="playerFullscreenWin"> Windows 播放器啟動時全螢幕
+        </label>
       </div>
 
       <div class="card data-root-card">

@@ -77,7 +77,8 @@
         "deb"
       ],
       "category": "AudioVideo;Audio",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "maintainer": "Misaka Sarina <124050454+LGBTALBUM@users.noreply.github.com>"
     },
     "nsis": {
       "oneClick": false,
@@ -86,5 +87,8 @@
     },
     "publish": null
   },
-  "author": "Misaka Sarina"
+  "author": {
+    "name": "Misaka Sarina",
+    "email": "124050454+LGBTALBUM@users.noreply.github.com"
+  }
 }

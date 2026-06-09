@@ -109,6 +109,10 @@
 
       <div class="card">
         <h3>全部專輯</h3>
+        <div class="search-bar">
+          <input id="albumSearch" class="search-input" type="search" placeholder="搜尋專輯、作者、年份、備註；支援 * 和 ?">
+          <span id="albumSearchCount" class="search-meta"></span>
+        </div>
         <div class="table-wrap">
           <table id="albumTable">
             <thead>
@@ -133,9 +137,15 @@
 
       <div class="card">
         <h3>選中專輯內作品</h3>
-        <label>查看專輯
-          <select id="trackAlbumSelect"></select>
-        </label>
+        <div class="inline-form">
+          <label>查看專輯
+            <select id="trackAlbumSelect"></select>
+          </label>
+          <label class="grow">搜尋作品
+            <input id="albumTrackSearch" class="search-input" type="search" placeholder="搜尋歌曲、音訊、LRC、PV">
+          </label>
+          <span id="albumTrackSearchCount" class="search-meta"></span>
+        </div>
         <div class="table-wrap">
           <table id="trackTable">
             <thead>
@@ -188,6 +198,10 @@
 
       <div class="card">
         <h3>歌曲列表</h3>
+        <div class="search-bar">
+          <input id="bindTrackSearch" class="search-input" type="search" placeholder="搜尋歌曲、專輯、音訊、LRC、PV；支援 * 和 ?">
+          <span id="bindTrackSearchCount" class="search-meta"></span>
+        </div>
         <div class="table-wrap">
           <table id="bindTrackTable">
             <thead>
@@ -234,6 +248,10 @@
 
       <div class="card">
         <h3>LRC 池</h3>
+        <div class="search-bar">
+          <input id="lrcSearch" class="search-input" type="search" placeholder="搜尋 LRC 檔名、路徑、已綁定歌曲；支援 * 和 ?">
+          <span id="lrcSearchCount" class="search-meta"></span>
+        </div>
         <div class="table-wrap">
           <table id="lrcTable">
             <thead>
@@ -276,6 +294,10 @@
 
       <div class="card">
         <h3>PV 池</h3>
+        <div class="search-bar">
+          <input id="pvSearch" class="search-input" type="search" placeholder="搜尋 PV 檔名、路徑、已綁定歌曲；支援 * 和 ?">
+          <span id="pvSearchCount" class="search-meta"></span>
+        </div>
         <div class="table-wrap">
           <table id="pvTable">
             <thead>
@@ -304,6 +326,10 @@
       <div class="card">
         <h3>歌曲刪除</h3>
         <p class="hint">「只刪記錄」會保留 data 裡的檔案；「刪記錄+未被引用檔案」會同時清掉這首歌專用的音訊、LRC、PV。</p>
+        <div class="search-bar">
+          <input id="deleteTrackSearch" class="search-input" type="search" placeholder="搜尋歌曲、專輯、音訊、LRC、PV；支援 * 和 ?">
+          <span id="deleteTrackSearchCount" class="search-meta"></span>
+        </div>
         <div class="table-wrap">
           <table id="deleteTrackTable">
             <thead>
@@ -336,6 +362,10 @@
               <option value="other">其他</option>
             </select>
           </label>
+          <label class="grow">搜尋檔案
+            <input id="deleteFileSearch" class="search-input" type="search" placeholder="搜尋檔名、路徑、引用；支援 * 和 ?">
+          </label>
+          <span id="deleteFileSearchCount" class="search-meta"></span>
           <button id="reloadDeleteFilesBtn">重新整理</button>
         </div>
         <div class="table-wrap">

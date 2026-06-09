@@ -23,6 +23,27 @@ async function assetUrl(relPath) {
   return window.mmcc.dataFileUrl(relPath);
 }
 
+
+async function applyAudioOutputDevice(mediaEl) {
+  if (!mediaEl || typeof mediaEl.setSinkId !== 'function') return;
+
+  const settings = payload?.config?.settings || {};
+  const deviceId = settings.audioOutputDeviceId || 'default';
+
+  try {
+    await mediaEl.setSinkId(deviceId || 'default');
+  } catch (error) {
+    console.warn('Audio output device switch failed:', error);
+  }
+}
+
+async function applyAudioOutputs() {
+  await Promise.all([
+    applyAudioOutputDevice(audio),
+    applyAudioOutputDevice(pv)
+  ]);
+}
+
 function setScrollingText(el, text) {
   el.classList.remove('scroll');
   el.innerHTML = '';
@@ -208,6 +229,7 @@ async function playAudioWithBackground(track) {
   bgTimer = setInterval(() => rotateBg(), 40000);
 
   await loadLyrics(track);
+  await applyAudioOutputs();
   syncLyrics();
 
   audio.src = await assetUrl(track.musicpath);
@@ -237,6 +259,7 @@ async function playTrack(track) {
   if (canPV) {
     document.body.classList.add('pv-mode');
     pv.src = await assetUrl(track.videopath);
+    await applyAudioOutputs();
     pv.classList.remove('hidden');
     pv.onended = startNext;
     pv.onerror = () => playAudioWithBackground(track);
@@ -259,6 +282,16 @@ function startNext() {
     playTrack(track);
   }
 }
+
+
+window.addEventListener('keydown', async event => {
+  if (event.key === 'F11') {
+    event.preventDefault();
+    await window.mmcc.togglePlayerFullscreen?.();
+  } else if (event.key === 'Escape') {
+    await window.mmcc.setPlayerFullscreen?.(false);
+  }
+});
 
 async function init() {
   payload = await window.mmcc.getLibrary();

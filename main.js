@@ -46,7 +46,10 @@ const DEFAULT_SETTINGS = {
   ffmpegPath: '',
   transcodeGpuMode: 'auto',
   playbackGpu: true
-};
+,
+  audioOutputDeviceId: 'default',
+  audioOutputDeviceLabel: '',
+  playerFullscreenWin: false};
 
 let mainWindow = null;
 let playerWindow = null;
@@ -2367,7 +2370,10 @@ async function saveSettings(settings) {
     bgMode: settings?.bgMode || 'cover',
     ffmpegPath: String(settings?.ffmpegPath || '').trim(),
     transcodeGpuMode: String(settings?.transcodeGpuMode || 'auto'),
-    playbackGpu: settings?.playbackGpu !== false
+    playbackGpu: settings?.playbackGpu !== false,
+    audioOutputDeviceId: String(settings?.audioOutputDeviceId || 'default'),
+    audioOutputDeviceLabel: String(settings?.audioOutputDeviceLabel || '').trim(),
+    playerFullscreenWin: settings?.playerFullscreenWin === true
   };
 
   await saveConfig(config);
@@ -2390,8 +2396,13 @@ function createMainWindow() {
   mainWindow.loadFile(path.join(ROOT_DIR, 'src', 'renderer', 'index.html'));
 }
 
-function openPlayerWindow() {
+async function openPlayerWindow() {
+  const config = await loadConfig().catch(() => ({ settings: DEFAULT_SETTINGS }));
+  const settings = { ...DEFAULT_SETTINGS, ...(config?.settings || {}) };
+  const shouldFullscreen = process.platform === 'win32' && settings.playerFullscreenWin === true;
+
   if (playerWindow && !playerWindow.isDestroyed()) {
+    if (process.platform === 'win32') playerWindow.setFullScreen(shouldFullscreen);
     playerWindow.focus();
     return;
   }
@@ -2399,6 +2410,7 @@ function openPlayerWindow() {
   playerWindow = new BrowserWindow({
     width: 1600,
     height: 900,
+    fullscreen: shouldFullscreen,
     backgroundColor: '#000000',
     autoHideMenuBar: true,
     webPreferences: {
@@ -2406,6 +2418,10 @@ function openPlayerWindow() {
       contextIsolation: true,
       nodeIntegration: false
     }
+  });
+
+  playerWindow.on('closed', () => {
+    playerWindow = null;
   });
 
   playerWindow.loadFile(path.join(ROOT_DIR, 'src', 'renderer', 'player.html'));
@@ -2473,9 +2489,23 @@ ipcMain.handle('data:resetRoot', async () => {
   }
 });
 
-ipcMain.handle('player:launch', () => {
-  openPlayerWindow();
+ipcMain.handle('player:launch', async () => {
+  await openPlayerWindow();
   return { ok: true };
+});
+
+ipcMain.handle('player:setFullscreen', (event, enabled) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || playerWindow;
+  if (!win || win.isDestroyed()) return { ok: false, error: 'Player window not found' };
+  win.setFullScreen(Boolean(enabled));
+  return { ok: true, fullscreen: win.isFullScreen() };
+});
+
+ipcMain.handle('player:toggleFullscreen', event => {
+  const win = BrowserWindow.fromWebContents(event.sender) || playerWindow;
+  if (!win || win.isDestroyed()) return { ok: false, error: 'Player window not found' };
+  win.setFullScreen(!win.isFullScreen());
+  return { ok: true, fullscreen: win.isFullScreen() };
 });
 
 ipcMain.handle('data:fileUrl', (_event, relPath) => pathToFileURL(assertInsideDataDir(relPath)).href);

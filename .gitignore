@@ -28,3 +28,6 @@ yarn-debug.log*
 yarn-error.log*
 .env
 .env.*
+
+# patch backups
+*.bak-audio-fullscreen
